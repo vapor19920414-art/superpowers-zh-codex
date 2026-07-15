@@ -1,0 +1,4 @@
+interface:
+  display_name: "压缩大上下文"
+  short_description: "使用 Headroom MCP 压缩日志、检索结果和大文本。"
+  default_prompt: "Use $compressing-large-context to compress large context with Headroom MCP and retrieve originals only when needed."
