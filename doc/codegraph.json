@@ -1,0 +1,39 @@
+{
+  "exclude": [
+    ".git/",
+    ".repo/",
+    "log/",
+    "build/",
+    "install/",
+    "thirdparty/",
+    "mcap2rosbag/"
+  ],
+  "include": [
+    "app_communication/",
+    "bringup/",
+    "broker/",
+    "cloud_communication/",
+    "cmake/",
+    "common/",
+    "daemon/",
+    "docs/",
+    "map_service/",
+    "mcu_communication/",
+    "mission_controller/",
+    "mower_msgs/",
+    "network_manager/",
+    "ota/",
+    "product_test/",
+    "proto_codec/",
+    "recorder/",
+    "scripts/",
+    "sensor/",
+    "shell/",
+    "software_msgs/",
+    "stress_test/",
+    "system_manager/",
+    "test/",
+    "usb_watcher/",
+    "zenoh_bridge_soc/"
+  ]
+}
