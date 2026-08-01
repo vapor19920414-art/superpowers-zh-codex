@@ -101,7 +101,7 @@ headroom 为 Python 脚本，安装到 `~/.local/bin/headroom`：
 
 ```bash
 # 方式一：pip 安装（推荐）
-pip install --user headroom
+pip3 install --user "headroom-ai[all]"
 
 # 方式二：官方安装脚本（如提供）
 # curl -fsSL https://raw.githubusercontent.com/chopratejas/headroom/main/install.sh | bash
