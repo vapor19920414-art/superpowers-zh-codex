@@ -124,3 +124,54 @@ git checkout -- using-superpowers/SKILL.md \
 - **强制 Read references**（thinking.md 通用流程第 2 步）：调试场景 references 不固定，强制重读代价高；systematic-debugging 第一阶段已含等价精神（见五、未吸收部分新增行）
 - **sequential-thinking MCP 载体**：Codex 第三方模型下 MCP 不可用（AGENTS.md provider-aware 策略），本次直接采用文字块形式，不引入 MCP 依赖
 - **verdict 分流标注 / 末轮扩读 / 历史检索注入**：仍依赖 icode 工单系统，不吸收（见五、未吸收部分）
+
+## 八、三次吸收：需求收敛双视角 + 多层审查增强（2026-08-01，直接提炼式）
+
+> 本次吸收 2 项 P0 机制，分别注入 `verification-before-completion` 和 `requesting-code-review`，补强"完成前验证只看计划不看需求"和"单层审查遗漏深层问题"两个短板。
+
+### 8.1 吸收对象
+
+| # | icode 源文件 | 提炼机制 | 注入目标 skill | 注入锚点 | 注入段标题 |
+|---|-------------|---------|---------------|---------|-----------|
+| 7 | `steps/06_audit.md` §6.7 | 需求收敛双视角（需求角度 vs 计划角度逐条对照） | `verification-before-completion/SKILL.md` | `## 证据回指纪律` 后、`## 底线` 前 | `## 需求收敛双视角` |
+| 8 | `steps/05_deepcheck.md` | 三阶段递进复检（Reverse 逆推 -> Fixed 固定维度 -> Free 自由探索） | `requesting-code-review/SKILL.md` | `## 对抗验证增强（可选）` 后、`## 红线` 前 | `## 多层审查增强（可选）` |
+
+### 8.2 提炼要点
+
+**吸收 7·需求收敛双视角**：
+- **源规则**：icode 终审步骤 §6.7 双视角对照（视角 A 需求角度 vs 视角 B 计划角度），依赖 `metadata.requirement` / `limit_refs` 字段
+- **泛化处理**：去除 metadata/limit_refs 依赖，改为"重读用户原始需求 -> 逐条拆解 -> 双视角对照表"
+- **注入逻辑**：补强 verification-before-completion 的"需求已满足"检查--原来只说"逐项核对清单"但不区分计划角度和需求角度，实测会出现"计划功能点全实现但用户需求某个边角遗漏"
+- **与门控函数的关系**：双视角是门控函数在需求维度的细化--把笼统的"需求已满足"拆成逐条可验证的对照表
+
+**吸收 8·多层审查增强**：
+- **源规则**：icode 步骤 5 三阶段递进复检（Reverse 只给代码逆推需求 -> Fixed 7 维度逐项覆盖 -> Free 15 角度自由探索），依赖 `03_plan_final.md` / metadata
+- **泛化处理**：去除 icode 产物文件依赖，保留三阶段递进结构与核心维度；Fixed 维度从 icode 原 6 个调整为 7 个（合并"现有实现对照"与"跨文件一致性"为独立维度）；Free 15 角度精简为 12 个关键角度
+- **按变更规模分档**：小变更仅第 1 层、中等变更 1+2 层、重要变更三层全跑（icode 原文是固定三层全跑）
+- **与对抗验证的关系**：多层审查是审查深度的分层递进，对抗验证是审查结论的独立验证，两者可叠加使用
+
+### 8.3 改动统计
+
+2 文件，+76 行，0 删除：
+- `verification-before-completion/SKILL.md`：+30 行（需求收敛双视角段）
+- `requesting-code-review/SKILL.md`：+46 行（多层审查增强段）
+- `doc/icode-mechanism-absorption.md`：+本节
+
+frontmatter（name/description）全部未动，原有内容一字未改，skill 触发机制不受影响。~/.codex/skills 软链自动同步。
+
+### 8.4 同步规则追加
+
+当 `icode-skill/steps/` 下 2 个源文件有更新时，按以下规则核对：
+
+5. `steps/06_audit.md` §6.7 改动 -> 检查 `verification-before-completion` 的「需求收敛双视角」段是否需同步。注意：源规则依赖 metadata.requirement / limit_refs，注入段已泛化去除，同步时只比对「双视角对照核心规则」是否变化（如新增视角、调整收敛判定逻辑）。
+6. `steps/05_deepcheck.md` 三阶段段改动 -> 检查 `requesting-code-review` 的「多层审查增强」段是否需同步。注意：源规则的三阶段含 fast 模式降级、schema 迁移等 icode 专属逻辑，同步时只比对「三阶段递进结构 + Fixed 维度清单 + Free 角度清单」是否变化。
+
+### 8.5 回滚方法追加
+
+```bash
+# 回滚本次两项注入
+git checkout -- verification-before-completion/SKILL.md \
+                 requesting-code-review/SKILL.md
+```
+
+注入段标题为 `## 需求收敛双视角` / `## 多层审查增强（可选）`，可 grep 定位单独删除。
