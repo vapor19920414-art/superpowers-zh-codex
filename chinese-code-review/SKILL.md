@@ -115,43 +115,9 @@ function calculateDiscount(level: MemberLevel, amount: number): number {
 // 这里用防抖动处理，避免频繁触发应用程序接口请求
 ```
 
-## Commit Message 中英双语格式
+## Commit Message 规范
 
-### 推荐格式
-
-团队内部项目使用中文 commit message，采用约定式提交（Conventional Commits）的中文版：
-
-```
-<类型>(<范围>): <简要描述>
-
-<详细说明（可选）>
-
-<关联信息（可选）>
-```
-
-### 类型对照表
-
-| 类型 | 含义 | 示例 |
-|------|------|------|
-| feat | 新功能 | feat(用户): 新增手机号登录功能 |
-| fix | 修复 Bug | fix(支付): 修复微信支付回调重复处理的问题 |
-| docs | 文档变更 | docs: 更新 API 接口文档 |
-| style | 代码格式 | style: 统一缩进为 2 个空格 |
-| refactor | 重构 | refactor(订单): 拆分订单服务，提取公共逻辑 |
-| perf | 性能优化 | perf(列表): 虚拟滚动优化长列表渲染性能 |
-| test | 测试 | test(auth): 补充登录模块单元测试 |
-| chore | 构建/工具 | chore: 升级 Node.js 至 v20 |
-
-### 示例
-
-```
-fix(支付): 修复支付宝异步回调签名校验失败的问题
-
-原因：升级 SDK 后签名算法从 RSA 变为 RSA2，但回调校验仍使用旧算法。
-方案：回调处理中同时兼容 RSA 和 RSA2 签名校验。
-
-Closes #1234
-```
+代码审查中发现 commit message 问题时，参考 **superpowers:chinese-commit-conventions**（中文项目）或 **superpowers:english-commit-conventions**（跨国/开源项目）的完整规范。
 
 ### 面向国际社区的项目
 
