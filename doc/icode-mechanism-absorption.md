@@ -175,3 +175,104 @@ git checkout -- verification-before-completion/SKILL.md \
 ```
 
 注入段标题为 `## 需求收敛双视角` / `## 多层审查增强（可选）`，可 grep 定位单独删除。
+
+## 九、四次吸收：Codex 兼容性补强 + 修复分档 + 前提假设 + 工具调用模式（2026-08-03，直接提炼式 + 改造式）
+
+> 本次吸收 5 项机制，核心驱动是 **Codex CLI 兼容性**：前三次吸收未考虑“当前会话未暴露 spawn 能力”的场景，对抗验证段会直接失效。本次补齐按会话实际能力判定的降级路径，同时吸收 icode-skill 7-8 月新增的 3 项质量机制。
+
+### 9.1 吸收对象
+
+| # | icode 源文件 | 提炼机制 | 注入目标 skill | 注入位置 | 操作类型 |
+|---|-------------|---------|---------------|---------|---------|
+| 9 | `references/adversarial.md`（v2.3/v2.4「环境无 spawn 工具场景」段） | 环境无 spawn 工具降级路径 | `requesting-code-review/SKILL.md` | 「对抗验证增强」段内，「子代理失败处理」后 | 新增子段 |
+| 10 | `SKILL.md`（`746d61b` commit「工具调用模式规范」段） | 工具调用模式规范（批量并行 + 连续执行） | `using-superpowers/SKILL.md` | 「执行反偷懒约束」后、「深度思考载体分档」前 | 新增段 |
+| 11 | `references/adversarial.md`（v2.4「显式等待+超时」+ v2.6「重试 2 次」） | 对抗验证增强：显式等待+超时四态+重试 2 次（按当前接口支持调整执行配置） | `requesting-code-review/SKILL.md` | 替换原「子代理失败处理」单行 | 增强替换 |
+| 12 | `references/anti_laziness.md` 第 26 条（v2.7） | 修复方案三档分级（A/B/C） | `systematic-debugging/SKILL.md` | 第四阶段第 2 步「实施单一修复」后 | 新增子段 |
+| 13 | `references/anti_laziness.md` 第 27 条 + `steps/00_init.md` §5（v2.10） | 前提假设验证（外部前提实验表） | `brainstorming/SKILL.md` | 「流程详述·理解想法」后、「探索方案」前 | 新增子段 |
+
+### 9.2 提炼要点
+
+**吸收 9·环境无 spawn 工具降级路径**：
+- **源规则**：icode `adversarial.md` v2.3/v2.4「环境无 spawn 工具场景」--环境结构性无 spawn 能力时不重试、诚实降级标 `[未验证-环境无spawn工具]`、主代理代行须三视角各自独立
+- **Codex 驱动**：不同 Codex 会话暴露的工具能力可能不同；若当前会话未暴露或无法调用 `spawn_agent`，前三次吸收的对抗验证段会失效且无降级路径
+- **泛化处理**：去除 `no_spawn_env` flag / `log_analysis.md §6` 产物标记要求；Codex 以当前会话是否实际暴露且可调用 `spawn_agent` 判定，配置文件仅作排障线索
+- **与原注入段的关系**：补强第三轮吸收的「对抗验证增强（可选）」段--原段只说"重试 1 次"，无环境不可用的降级路径
+
+**吸收 10·工具调用模式规范**：
+- **源规则**：icode `SKILL.md` commit `746d61b` 新增段--两条硬性规则：①无依赖工具调用必须批量并行；②拿到结果后立即继续不等用户推进
+- **泛化处理**：去除"Agent 工具"措辞改为平台中性"子代理工具"；去除"MCP 调用覆盖强制化"关联（icode 专属）
+- **Codex 价值**：Codex CLI 下同样存在"每次只发一个工具调用就停"的问题，此规则平台无关
+
+**吸收 11·对抗验证增强（显式等待+超时+重试 2 次）**：
+- **源规则**：icode `adversarial.md` v2.4「显式等待+超时机制」+ v2.6「子代理失败处理」第 2 步升级
+- **改造点**：原注入版"重试 1 次"升级为"重试 2 次（第 2 次仅在当前接口支持时调整执行配置）"；新增四态枚举（`sync_ok`/`timeout_retry_used`/`still_failed_after_retry`/`env_no_spawn`）；新增显式等待契约（120s 超时 + 超时触发重试 1 次）
+- **泛化处理**：去除 `task_timeout_seconds` metadata 字段依赖，保留 120s 默认值 + 四态枚举
+
+**吸收 12·修复方案三档分级**：
+- **源规则**：icode `anti_laziness.md` 第 26 条（v2.7）--Bug 修复方案分 A（根因修复 Must-fix）/ B（兜底防御 Defensive）/ C（后续工单 Out-of-scope）三档
+- **泛化处理**：去除 `fix_tiers` metadata / `confirmed_B_fixes` 字段依赖，保留三档判定逻辑 + "最小修复=只做 A 档"原则
+- **与 systematic-debugging 的关系**：补强第四阶段"实施修复"--原段只说"实施单一修复"，缺乏修复范围分级机制
+
+**吸收 13·前提假设验证**：
+- **源规则**：icode `anti_laziness.md` 第 27 条（v2.10）+ `steps/00_init.md` §5「前提假设实验表」--需求依赖无法代码验证的外部事实时必须设计最小实验
+- **泛化处理**：去除 `00_init.md §5` / `plan §9` 字段依赖，保留"识别外部前提 -> 代码能验证则标注验证方法、不能则设计实验 -> 证伪回写"核心规则
+- **与 brainstorming 的关系**：补强「理解想法」阶段--原段不强制验证需求前提，实测痛点是"需求前提与事实不符但到实现/测试阶段才暴露"
+
+### 9.3 初始注入范围
+
+初始注入涉及 4 个 skill 文件；相对当时基线为 +95 行、-3 行（-3 行为 ①+③ 增强替换的旧"重试 1 次"单行 + 旧引用行）：
+- `using-superpowers/SKILL.md`：+23 行（工具调用模式规范段）
+- `requesting-code-review/SKILL.md`：+32 行 / -3 行（显式等待+超时+重试2次+环境无spawn降级，替换旧单行）
+- `systematic-debugging/SKILL.md`：+17 行（修复方案三档分级子段）
+- `brainstorming/SKILL.md`：+26 行（前提假设验证子段）
+- `doc/icode-mechanism-absorption.md`：+本节
+
+frontmatter（name/description）全部未动，skill 触发机制不受影响。Codex CLI `~/.codex/skills/` 软链自动同步（指向同一份源文件）。
+
+### 9.3.1 评审复核后的规则对齐（2026-08-03）
+
+- `requesting-code-review`：Codex 是否具备子代理能力以当前会话实际暴露且可调用 `spawn_agent` 为准；配置文件仅作排障线索。第二次重试只在当前接口支持时调整执行配置。
+- `using-superpowers`：批量并行仅适用于无依赖、无副作用或不共享写入目标、且工具允许并行的调用；受资源、速率或工具串行要求约束的调用必须串行。
+- `systematic-debugging`：未明确要求“写单测”“补充测试用例”或“完善测试覆盖”时，不自动新增或修改 `test/` 下测试代码；验证优先复用已有测试、构建、静态检查或用户提供的复现路径。
+
+### 9.4 Codex 兼容性设计
+
+本次吸收的核心创新是**所有涉及 spawn 的段均含"环境无 spawn 工具"降级路径**，确保当前 Codex 会话未暴露该工具时不会失效：
+
+| 注入段 | 是否依赖 spawn | Codex 降级路径 |
+|--------|-------------|--------------|
+| 工具调用模式规范（②） | ❌ 不依赖 | 无需降级，平台中性 |
+| 显式等待+超时+重试2次（③） | ✅ 依赖 | 四态中 `env_no_spawn` 状态 |
+| 环境无 spawn 降级路径（①） | ✅ 依赖 | 本段即降级路径本身 |
+| 修复方案三档分级（④） | ❌ 不依赖 | 无需降级，纯逻辑规则 |
+| 前提假设验证（⑤） | ❌ 不依赖 | 无需降级，纯思考规则 |
+
+**平台中性措辞约束**：所有注入段不使用 `Task 工具`/`Agent 工具` 等 Claude Code 专属名称，改用"子代理工具"或"spawn"通用表述。具体工具名、执行参数和等待方式均以当前运行环境实际接口为准。
+
+### 9.5 同步规则追加
+
+当 icode-skill 源文件有更新时，按以下规则核对：
+
+7. `references/adversarial.md`「环境无 spawn 工具场景」段改动 -> 检查 `requesting-code-review` 的「环境无 spawn 工具的降级路径」段是否需同步。注意：源规则依赖 `no_spawn_env` flag / 产物文件标记，注入段已泛化去除，同步时只比对"结构性不可用 vs 临时失败区分 + 主代理代行条件"核心规则是否变化。
+8. `SKILL.md`「工具调用模式规范」段改动 -> 检查 `using-superpowers` 的「工具调用模式规范」段是否需同步。注意：源规则含"MCP 调用覆盖强制化"关联，注入段已去除，同步时只比对"批量并行 + 连续执行"两条核心规则是否变化。
+9. `references/adversarial.md`「显式等待+超时」/「重试 2 次」段改动 -> 检查 `requesting-code-review` 的对应段是否需同步。注意：源规则含 `task_timeout_seconds` 字段依赖，注入段已泛化为 120s 默认值，同步时只比对"四态枚举 + 重试 2 次（按当前接口支持调整执行配置）+ 等待契约"是否变化。
+10. `references/anti_laziness.md` 第 26 条改动 -> 检查 `systematic-debugging` 的「修复方案三档分级」段是否需同步。注意：源规则含 `fix_tiers`/`confirmed_B_fixes` metadata 依赖，注入段已泛化去除，同步时只比对"A/B/C 三档判定逻辑 + 最小修复原则"是否变化。
+11. `references/anti_laziness.md` 第 27 条 + `steps/00_init.md` §5 改动 -> 检查 `brainstorming` 的「前提假设验证」段是否需同步。注意：源规则含 `00_init.md §5`/`plan §9` 字段依赖，注入段已泛化去除，同步时只比对"识别外部前提 -> 验证分流 -> 实验设计要求 -> 证伪回写"核心规则是否变化。
+
+### 9.6 回滚方法追加
+
+```bash
+# 回滚本次五项注入
+git checkout -- using-superpowers/SKILL.md \
+                 requesting-code-review/SKILL.md \
+                 systematic-debugging/SKILL.md \
+                 brainstorming/SKILL.md
+```
+
+注入段标题/锚点为：
+- `using-superpowers`：`## 工具调用模式规范`
+- `requesting-code-review`：`**显式等待 + 超时` / `**子代理失败处理（重试 2 次` / `**环境无 spawn 工具的降级路径` / `**Codex CLI 判定方法`
+- `systematic-debugging`：`**修复方案三档分级`
+- `brainstorming`：`**前提假设验证`
+
+可 grep 定位单独删除。注意 `requesting-code-review` 的「环境无 spawn 工具的降级路径」是与「显式等待+超时」「重试 2 次」配套的子段，删除时需整体回滚这三段（回滚命令已覆盖）。
