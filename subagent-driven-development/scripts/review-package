@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Generate a review package: commit list, stat summary, and the net
-# diff with extended context, written to a file the reviewer reads in one
-# call. Using the recorded per-task BASE (not HEAD~1) keeps multi-commit
-# tasks intact.
+# Generate a review package containing commits plus the current staged,
+# unstaged, and untracked worktree state. Using the recorded per-task BASE
+# (not HEAD~1) keeps multi-commit tasks intact; including the worktree keeps
+# uncommitted tasks reviewable when the user did not authorize commits.
 #
 # Usage: review-package BASE HEAD [OUTFILE]
 # Default OUTFILE: <repo-root>/.superpowers/sdd/review-<base7>..<head7>.diff
@@ -20,6 +20,13 @@ head=$2
 git rev-parse --verify --quiet "$base" >/dev/null || { echo "bad BASE: $base" >&2; exit 2; }
 git rev-parse --verify --quiet "$head" >/dev/null || { echo "bad HEAD: $head" >&2; exit 2; }
 
+resolved_head=$(git rev-parse "$head")
+current_head=$(git rev-parse HEAD)
+if [ "$resolved_head" != "$current_head" ]; then
+  echo "HEAD changed: requested $resolved_head, current $current_head" >&2
+  exit 2
+fi
+
 if [ $# -eq 3 ]; then
   out=$3
 else
@@ -28,16 +35,32 @@ else
 fi
 
 {
-  echo "# Review package: ${base}..${head}"
+  echo "# Review package: ${base}..${head} + current worktree"
   echo
   echo "## Commits"
   git log --oneline "${base}..${head}"
   echo
-  echo "## Files changed"
-  git diff --stat "${base}..${head}"
+  echo "## Worktree status"
+  git status --short
   echo
-  echo "## Diff"
-  git diff -U10 "${base}..${head}"
+  echo "## Tracked files changed since BASE"
+  git diff --stat "$base"
+  echo
+  echo "## Tracked diff since BASE"
+  git diff --binary -U10 "$base"
+  echo
+  echo "## Untracked files"
+  while IFS= read -r -d '' file; do
+    printf '\n### %s\n\n' "$file"
+    if [ -d "$file" ]; then
+      echo "Untracked directory or nested Git root; review it as a separate scope."
+      continue
+    fi
+    git diff --no-index --binary -- /dev/null "$file" || {
+      rc=$?
+      [ "$rc" -eq 1 ] || exit "$rc"
+    }
+  done < <(git ls-files --others --exclude-standard -z)
 } > "$out"
 
 commits=$(git rev-list --count "${base}..${head}")

@@ -12,16 +12,15 @@ metadata:
 
 ## 概述
 
-编写全面的实现计划，假设工程师对我们的代码库零上下文，且品味存疑。记录他们需要知道的一切：每个任务要修改哪些文件、代码、测试、可能需要查阅的文档、如何测试。将整个计划拆成小步骤任务。DRY。YAGNI。TDD。频繁 commit。
+编写全面的实现计划，假设工程师对我们的代码库零上下文，且品味存疑。记录他们需要知道的一切：每个任务要修改哪些文件、代码、可能需要查阅的文档，以及如何验证。将整个计划拆成小步骤任务。DRY。YAGNI。
 
 假设他们是有经验的开发者，但对我们的工具链和问题领域几乎一无所知。假设他们不太擅长测试设计。
 
 **开始时宣布：** "我正在使用 writing-plans 技能创建实现计划。"
 
-**上下文：** 此技能应在专用 worktree 中运行（由 brainstorming 技能创建）。
+**上下文：** 编写计划本身不要求创建 worktree。进入实现前如需隔离，由 `using-git-worktrees` 按用户授权和项目规则处理。
 
-**计划保存位置：** `docs/superpowers/plans/YYYY-MM-DD-<feature-name>.md`
-- （用户对计划位置的偏好优先于此默认值）
+**计划落盘：** 只有用户要求、项目惯例或已批准流程需要时才保存；默认位置为 `docs/superpowers/plans/YYYY-MM-DD-<feature-name>.md`，用户偏好优先。
 
 ## 范围检查
 
@@ -40,12 +39,12 @@ metadata:
 
 ## 小步骤任务粒度
 
-**每步是一个操作（2-5 分钟）：**
-- "编写失败的测试" - 一步
-- "运行它确认失败" - 一步
-- "实现最少代码让测试通过" - 一步
-- "运行测试确认通过" - 一步
-- "Commit" - 一步
+**每步是一个可独立验证的操作（通常 2-5 分钟）：**
+- 阅读目标符号及调用链 - 一步
+- 完成一个最小实现改动 - 一步
+- 运行与该改动匹配的现有验证命令 - 一步
+- 只有用户明确要求测试时，才加入新增/修改测试及 TDD 步骤
+- 只有用户明确授权提交时，才加入 Commit 步骤
 
 ## 计划文档头部
 
@@ -71,39 +70,31 @@ metadata:
 ### 任务 N：[组件名称]
 
 **文件：**
-- 创建：`exact/path/to/file.py`
 - 修改：`exact/path/to/existing.py:123-145`
-- 测试：`tests/exact/path/to/test.py`
+- 关联：`exact/path/to/caller.py:42`
+- 测试：`tests/exact/path/to/test.py`（仅用户明确要求新增/修改测试时列出）
 
-- [ ] **步骤 1：编写失败的测试**
-
-```python
-def test_specific_behavior():
-    result = function(input)
-    assert result == expected
-```
-
-- [ ] **步骤 2：运行测试验证失败**
-
-运行：`pytest tests/path/test.py::test_name -v`
-预期：FAIL，报错 "function not defined"
-
-- [ ] **步骤 3：编写最少实现代码**
-
-```python
-def function(input):
-    return expected
-```
-
-- [ ] **步骤 4：运行测试验证通过**
-
-运行：`pytest tests/path/test.py::test_name -v`
-预期：PASS
-
-- [ ] **步骤 5：Commit**
+- [ ] **步骤 1：核对现有实现和调用链**
 
 ```bash
-git add tests/path/test.py src/path/file.py
+rg -n "function_name|related_symbol" exact/path
+```
+
+- [ ] **步骤 2：实施最小修改**
+
+```text
+在这里给出本任务需要落地的精确代码或逐行修改说明；不得使用 TODO 或省略号占位。
+```
+
+- [ ] **步骤 3：运行现有验证**
+
+运行：`<项目已有的构建、静态检查、测试或复现命令>`
+预期：`<明确的退出码或输出判据>`
+
+- [ ] **步骤 4：Commit（仅用户已授权时保留）**
+
+```bash
+git add exact/path/to/existing.py exact/path/to/caller.py
 git commit -m "feat: add specific feature"
 ```
 ````
@@ -122,7 +113,8 @@ git commit -m "feat: add specific feature"
 - 始终使用精确的文件路径
 - 每个步骤都包含完整代码——如果步骤涉及代码变更，就展示代码
 - 精确的命令和预期输出
-- DRY、YAGNI、TDD、频繁 commit
+- DRY、YAGNI
+- 测试和 commit 都服从用户授权边界：未明确要求时不新增/修改测试，不把 commit 写成强制步骤
 
 ## 自检
 
@@ -138,9 +130,9 @@ git commit -m "feat: add specific feature"
 
 ## 执行交接
 
-保存计划后，提供执行选项：
+计划完成后提供执行选项。已落盘时给出路径；未要求落盘时直接以当前对话中的计划为准：
 
-**"计划已完成并保存到 `docs/superpowers/plans/<filename>.md`。两种执行方式：**
+**"计划已完成。两种执行方式：**
 
 **1. 子代理驱动（推荐）** - 每个任务调度一个新的子代理，任务间进行审查，快速迭代
 

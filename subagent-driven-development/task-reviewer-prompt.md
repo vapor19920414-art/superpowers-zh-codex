@@ -6,7 +6,7 @@
 **目的：** 核实一个任务的实现与其需求匹配（不多不少）且构建良好（整洁、有测试、可维护）
 
 ```
-Subagent (general-purpose):
+Subagent（使用当前平台的子代理工具；Codex 的审查包自包含时设置 `fork_turns="none"`）：
   description: "审查任务 N（规格 + 质量）"
   model: [模型 —— 必填：按 SKILL.md 的"模型选择"来选；省略模型会默默
          继承会话里最贵的那个]
@@ -32,12 +32,14 @@ Subagent (general-purpose):
     **Head：** [HEAD_SHA]
     **Diff 文件：** [DIFF_FILE]
 
-    一次性读取这个 diff 文件——它包含提交列表、stat 摘要，以及
-    带上下文的完整 diff，它就是你对本次改动的视图。diff 的上下文行
+    一次性读取这个 diff 文件——它包含提交列表、工作区状态、从 BASE
+    到当前工作区的 tracked diff，以及未跟踪文件内容/独立 scope 提示。
+    它就是你对本次改动的视图。diff 的上下文行
     **就是**那些被改动的文件：不要单独去 Read 某个被改动的文件，除非
     你必须判断的某个 hunk 在函数中途被截断——并在报告中说明这一点。
-    不要重跑 git 命令。如果 diff 文件缺失，就自己取 diff：
-    `git diff --stat [BASE_SHA]..[HEAD_SHA]` 和 `git diff [BASE_SHA]..[HEAD_SHA]`。
+    不要重跑 git 命令。如果 diff 文件缺失，就自己取 `git status --short`、
+    `git diff --stat [BASE_SHA]`、`git diff [BASE_SHA]` 和未跟踪文件清单；
+    不能退回只看 `[BASE_SHA]..[HEAD_SHA]`。
     不要爬取更广的代码库。只有为了评估一个你能点名的具体风险，才去
     查看 diff 之外的代码——每个点名的风险做一次聚焦检查，并在报告中
     同时点名这个风险和你检查了什么。横切改动是正当的、可点名的风险：
@@ -57,7 +59,7 @@ Subagent (general-purpose):
 
     ## 测试
 
-    实现者已经跑过测试，并为正是这份代码报告了带 TDD 证据的结果。
+    实现者应按任务授权运行验证；只有任务明确要求 TDD 时，报告才应包含 TDD 证据。
     不要为了确认他们的报告而重跑测试套件。只有当阅读代码引出一个
     现有任何运行都无法回答的具体疑问时，才去跑测试——而且是聚焦
     测试，绝不是包级套件、竞态检测运行、或反复的/高次数的循环。

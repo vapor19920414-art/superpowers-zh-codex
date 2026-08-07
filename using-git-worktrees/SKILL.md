@@ -91,7 +91,7 @@ git rev-parse --show-superproject-working-tree 2>/dev/null
 git check-ignore -q .worktrees 2>/dev/null || git check-ignore -q worktrees 2>/dev/null
 ```
 
-**如果未被忽略：** 添加到 .gitignore，提交该改动，然后继续。
+**如果未被忽略：** 停止并向用户说明需要修改忽略规则。只有用户授权后才修改 `.gitignore` 或本地 exclude；commit 需要单独的明确授权。忽略校验通过前不得创建项目内 worktree。
 
 **为什么关键：** 防止 worktree 内容被意外提交到仓库。
 
@@ -105,7 +105,7 @@ git worktree add "$path" -b "$BRANCH_NAME"
 cd "$path"
 ```
 
-**沙盒回退：** 如果 `git worktree add` 因权限错误（沙盒拒绝）失败，告诉用户沙盒阻止了 worktree 创建，你将在当前目录原地工作。然后原地运行 setup 和基线测试。
+**创建失败：** 如果 `git worktree add` 因权限、路径或环境限制失败，停止并报告原始错误。只有用户明确同意改为当前目录实现后，才能原地运行 setup 和基线验证；不得自动扩大到原工作区。
 
 ## 步骤 2：项目设置
 

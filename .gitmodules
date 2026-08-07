@@ -1,0 +1,3 @@
+[submodule "icode-skill"]
+	path = icode-skill
+	url = https://github.com/ayukyo/icode-skill.git

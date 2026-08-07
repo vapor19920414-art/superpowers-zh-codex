@@ -5,7 +5,7 @@
 **用途：** 在工作成果扩散到更多工作之前，对照需求和代码质量标准做一次审查。
 
 ```
-Task tool（general-purpose）:
+当前平台的代码审查子代理（Codex 使用 `spawn_agent`；任务包自包含时使用 `fork_turns="none"`）：
   description: "审查代码改动"
   prompt: |
     你是一名资深代码审查员，精通软件架构、设计模式与最佳实践。
@@ -19,15 +19,13 @@ Task tool（general-purpose）:
 
     {PLAN_OR_REQUIREMENTS}
 
-    ## 待审查的 Git 范围
+    ## 待审查范围
 
-    **Base：** {BASE_SHA}
-    **Head：** {HEAD_SHA}
+    {REVIEW_SCOPES}
 
-    ```bash
-    git diff --stat {BASE_SHA}..{HEAD_SHA}
-    git diff {BASE_SHA}..{HEAD_SHA}
-    ```
+    每个 scope 必须给出 Git 根、BASE/HEAD、工作区状态，以及覆盖 committed、
+    staged、unstaged、untracked 改动的审查包或等价 diff。逐个 scope 审查；
+    父仓库干净不能替代嵌套 Git 根证据。缺少任一范围时标为待验证，不能静默略过。
 
     ## 检查内容
 
@@ -121,8 +119,7 @@ Task tool（general-purpose）:
 **占位符说明：**
 - `{DESCRIPTION}` —— 已构建内容的简要说明
 - `{PLAN_OR_REQUIREMENTS}` —— 预期功能（计划文件路径、任务文本或需求）
-- `{BASE_SHA}` —— 起始 commit
-- `{HEAD_SHA}` —— 结束 commit
+- `{REVIEW_SCOPES}` —— 每个 Git 根的路径、基线、状态和完整审查材料
 
 **审查员返回：** 优点、问题（Critical / Important / Minor）、建议、评估
 

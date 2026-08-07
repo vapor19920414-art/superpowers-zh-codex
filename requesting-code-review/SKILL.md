@@ -28,21 +28,38 @@ metadata:
 
 ## 如何请求
 
-**1. 获取 git SHA：**
+### 审查范围与多 Git 根
+
+开始审查前，先从用户需求、计划以及 `git status`/diff 确定全部改动路径。对每个改动路径执行：
+
 ```bash
-BASE_SHA=$(git rev-parse HEAD~1)  # 或 origin/main
+git -C <改动文件所在目录> rev-parse --show-toplevel
+```
+
+- 每个不同结果都是独立 Git 根，分别计算 BASE/HEAD、读取状态和生成 diff。
+- 父仓库 diff 为空不代表嵌套仓库或 submodule 没有改动。
+- 未提交和已暂存改动必须与提交区间一起交给审查者。
+- 不能建立可靠基线的 Git 根标为“待验证”，不得静默漏审。
+
+**1. 确定审查基线：**
+```bash
+# 任务审查：使用任务开始前记录的 BASE_SHA
+# 整分支审查：使用与目标分支的 merge-base
+TARGET_BRANCH=<目标分支，如 master 或 origin/main>
+BASE_SHA=$(git merge-base "$TARGET_BRANCH" HEAD)
 HEAD_SHA=$(git rev-parse HEAD)
 ```
 
+**禁止默认使用 `HEAD~1`**：一个任务可能包含多个提交，`HEAD~1` 会静默漏审更早的改动。未提交改动应额外纳入 `git diff` / `git diff --cached`，不能只审查提交区间。
+
 **2. 派遣代码审查子代理：**
 
-使用 Task 工具，指定 `general-purpose` 类型，填写 `code-reviewer.md` 中的模板
+使用当前平台实际提供的子代理工具，填写 `code-reviewer.md` 中的模板。Codex 使用 `spawn_agent`；任务简报已自包含时使用 `fork_turns="none"`，避免继承无关会话历史。当前会话没有子代理能力时，按下方降级路径执行。
 
 **占位符说明：**
 - `{DESCRIPTION}` - 你刚完成的内容简要说明
 - `{PLAN_OR_REQUIREMENTS}` - 预期功能
-- `{BASE_SHA}` - 起始提交
-- `{HEAD_SHA}` - 结束提交
+- `{REVIEW_SCOPES}` - 每个 Git 根的绝对路径、BASE/HEAD、`git status --short`，以及覆盖 committed/staged/unstaged/untracked 改动的审查包或等价 diff
 
 **3. 处理反馈：**
 - Critical 问题立即修复
@@ -63,8 +80,11 @@ HEAD_SHA=$(git rev-parse HEAD)
 [派遣代码审查子代理]
   DESCRIPTION: 添加了 verifyIndex() 和 repairIndex()，支持 4 种问题类型
   PLAN_OR_REQUIREMENTS: docs/superpowers/plans/deployment-plan.md 中的任务 2
-  BASE_SHA: a7981ec
-  HEAD_SHA: 3df7661
+  REVIEW_SCOPES:
+    - Git 根: /path/to/repo
+      Base/Head: a7981ec..3df7661
+      状态: <git status --short 输出>
+      审查包: /path/to/review-a7981ec..3df7661.diff
 
 [子代理返回]:
   优点：架构清晰，测试真实
@@ -115,19 +135,19 @@ HEAD_SHA=$(git rev-parse HEAD)
 
 **主代理实证 ≠ 自演：** 主代理用 Read/Grep 查到的代码/日志铁证（如"某函数签名确实是 X"）属事实核查，可直接 confirmed 无需对抗。**必须独立对抗的**是判断性结论--无铁证、依赖独立视角的判断，主代理自演无效。
 
-**显式等待 + 超时（防"未等子代理返回就降级"）：** spawn 质疑者后必须等 verdict 返回才能进入裁决。超时阈值默认 120 秒。超时触发重试 1 次（换措辞，并仅在当前接口实际支持时调整执行配置）；二次仍超时或无 verdict -> 进入失败处理链路。区分四种状态：
+**显式等待（防“未等子代理返回就降级”）：** spawn 质疑者后必须等待 verdict 返回才能进入裁决。一次等待调用超时只表示“本次等待未收到新消息”，**不表示原子代理已失败**；先查询原 agent 状态并继续等待，禁止因此重复 spawn 一个仍在运行的任务。区分四种状态：
 
 | 状态 | 含义 |
 |------|------|
-| `sync_ok` | 同步等 verdict，120s 内返回 |
-| `timeout_retry_used` | 触发 1 次超时重试 |
-| `still_failed_after_retry` | 重试后仍超时/无 verdict |
+| `sync_ok` | 原 agent 正常返回 verdict |
+| `wait_continued` | 等待调用超时，但原 agent 仍运行，已继续等待 |
+| `replacement_used` | 原 agent 已明确失败/终止或最终输出不可用，启动 1 次替代任务 |
 | `env_no_spawn` | 环境结构性无 spawn 工具（见下方降级路径） |
 
-**子代理失败处理（重试 2 次，绝不自演）：** 质疑者返回空/截断/无裁决时：
-1. **第 1 次重试**：换措辞（强化"先给裁决再给依据"），子代理类型不变
-2. **第 2 次重试**：在当前接口实际支持的范围内更换执行配置（如可用模型或推理强度）；接口不支持时保持配置不变，仅更换措辞后再 spawn 一次
-3. **重试 2 次仍失败** -> 诚实降级为 `[未验证-子代理对抗失败]`，计入待验证清单，**绝不改由主代理自演裁决**（自演=既当运动员又当裁判，确认偏误倾向确认自己结论）
+**子代理失败处理（最多 1 个替代任务，绝不制造重复并发）：**
+1. 原 agent 仍为 running/pending → 继续等待，不 spawn 替代任务
+2. 原 agent 已明确 failed/cancelled/terminated，或最终输出为空、截断、无裁决 → 换措辞后启动 1 个替代任务；仅使用当前接口实际支持的模型或推理配置
+3. 替代任务仍失败 → 诚实降级为 `[未验证-子代理对抗失败]`，计入待验证清单，绝不改由主代理自演裁决
 
 **环境无 spawn 工具的降级路径：** 当当前会话结构性无子代理 spawn 能力（工具未暴露、调用明确返回不支持，或会话类型不支持子代理）时，**不重试、不自演**，走以下降级路径：
 
@@ -143,7 +163,7 @@ HEAD_SHA=$(git rev-parse HEAD)
 
 **Codex CLI 判定方法**：以当前会话是否实际暴露且可调用 `spawn_agent` 为准；配置文件只能作为排障线索，不能单独判定环境无 spawn 工具。
 
-> 本段提炼自 icode-skill `references/adversarial.md`「显式等待+超时机制」「子代理失败处理」「环境无 spawn 工具场景」三段，泛化去除 icode 专属的 `task_timeout_seconds` metadata 字段、`no_spawn_env` flag、产物文件标记要求，保留四态枚举 + 重试 2 次 + 环境无 spawn 降级核心规则。Codex 以当前会话实际工具能力判定。
+> 本段提炼自 icode-skill 的等待和诚实降级思想，并按 Codex 的实际 agent 生命周期修正：等待超时不等于任务失败，只有明确失败后才允许启动替代任务。
 
 ## 多层审查增强（可选）
 
@@ -168,7 +188,7 @@ HEAD_SHA=$(git rev-parse HEAD)
 | 3 | 场景覆盖度 | 空入参/超长输入/并发/重入/资源耗尽等场景是否处理？ |
 | 4 | 风险遗漏 | 是否有未识别的风险（安全/性能/兼容性/数据丢失）？ |
 | 5 | 落地可行性 | 接口签名/数据结构/依赖关系是否可编译可运行？ |
-| 6 | 现有实现对照 | 是否复用了既有模式？是否与周围代码风格一致？ |
+| 6 | 现有实现对照 | 是否存在等价行为？命中处是否已追到调用链和实际行为？应复用、补充还是确需新增？ |
 | 7 | 跨文件一致性 | 接口变更是否全链路同步？上下游数据结构是否对齐？ |
 
 ### 第 3 层·自由探索（Free）

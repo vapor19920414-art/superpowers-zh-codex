@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+    echo "用法: $0 --check|--dry-run|--apply" >&2
+}
+
+mode="${1:---check}"
+case "$mode" in
+    --check|--dry-run|--apply) ;;
+    *) usage; exit 64 ;;
+esac
+
+script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
+repo_root=$(git -C "$script_dir/.." rev-parse --show-toplevel)
+overlay="$repo_root/overlays/codex-local-policy.patch"
+
+if [[ ! -f "$overlay" ]]; then
+    echo "错误: overlay 不存在: $overlay" >&2
+    exit 66
+fi
+
+if git -C "$repo_root" apply --reverse --check "$overlay" >/dev/null 2>&1; then
+    echo "本地 Skill overlay 已应用。"
+    exit 0
+fi
+
+if ! git -C "$repo_root" apply --check "$overlay" >/dev/null 2>&1; then
+    echo "错误: 当前文件既不是已应用状态，也无法安全应用 overlay。" >&2
+    echo "请先 review 上游变更与 $overlay 的冲突，禁止强制覆盖。" >&2
+    exit 65
+fi
+
+case "$mode" in
+    --check)
+        echo "本地 Skill overlay 尚未应用，但当前上下文可安全应用。" >&2
+        exit 1
+        ;;
+    --dry-run)
+        echo "dry-run: 本地 Skill overlay 可安全应用。"
+        ;;
+    --apply)
+        git -C "$repo_root" apply "$overlay"
+        echo "本地 Skill overlay 已应用。"
+        ;;
+esac

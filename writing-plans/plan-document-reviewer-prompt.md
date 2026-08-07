@@ -7,7 +7,7 @@
 **调度时机：** 完整计划编写完成后。
 
 ```
-Task tool（通用）:
+当前平台的审查子代理（Codex 使用 `spawn_agent`；审查材料自包含时设置 `fork_turns="none"`）：
   description: "审查计划文档"
   prompt: |
     你是一名计划文档审查员。验证此计划是否完整并准备好进行实现。

@@ -9,7 +9,7 @@
 | 创建日期 | 2026-07-13 |
 | 版本 | v1.3 |
 | 适用范围 | Codex CLI 0.144.1 + Claude Code（skills 共享） |
-| 关联配置 | `~/.codex/AGENTS.md`、`~/.claude/skills-codex-patch.py`、memory: `codex-skills-trigger-mechanism` |
+| 关联配置 | `~/.codex/AGENTS.md`、`~/.claude/skills/scripts/skills-codex-patch.py`、memory: `codex-skills-trigger-mechanism` |
 
 ---
 
@@ -143,8 +143,8 @@
 - 该说什么：`创建一个新 skill` / `编辑现有 skill 并验证`
 - 触发标志：skill 创建/编辑/验证流程
 
-#### using-superpowers ⚠️ Codex 基本不触发
-- description 引用 Claude Code 的 `Skill 工具`，Codex 无此工具。Codex 里可忽略，不影响其他 skill 使用。
+#### using-superpowers（全局路由入口）
+- description 要求在每次对话开始时使用，用于先识别适用 skill 和平台能力；Codex 通过语义触发，不依赖 Claude Code 的 `Skill` 工具。
 
 #### workflow-runner ⚠️ Codex 未明确支持
 - description 限定 Claude Code/OpenClaw/Cursor，未提 Codex。提供 `.yaml` 工作流文件时可能触发，但不保证。
@@ -182,7 +182,7 @@ icode-skill 暂停使用（/icode 子命令体系在 Codex 无效），其承担
 | CLAUDE.md 同步更新 | "可用 Skills"一节对应 4 行 + 第 204 行（icode 暂停、5 个 skill 恢复） |
 | 恢复 5 个被删 skill | brainstorming、writing-plans、executing-plans、systematic-debugging、verification-before-completion（从 superpowers-zh v1.6.0 包提取，description 本就是语义触发） |
 | AGENTS.md 独立维护 | 断开 `~/.codex/AGENTS.md -> CLAUDE.md` 软链，写 Codex 专用版（去除 /skill、/icode、Skill 工具等 Claude Code 专属内容，新增 Codex skills 触发机制说明） |
-| 补丁脚本 | `~/.claude/skills-codex-patch.py`（idempotent），重装 superpowers-zh 后跑一次恢复 6 个 Codex 兼容改动 |
+| 补丁脚本 | `~/.claude/skills/scripts/skills-codex-patch.py`（idempotent），重装 superpowers-zh 后恢复历史 Codex 兼容措辞，并调用仓库内 policy overlay |
 | TDD 测试约束 | CLAUDE.md/AGENTS.md 新增 TDD 测试约束节（禁止自动写测试，仅用户明确要求时写）；test-driven-development skill description 改为仅显式触发；补丁脚本同步加入 TDD 条目 |
 | memory | `codex-skills-trigger-mechanism.md` 记录机制差异与当前状态 |
 
@@ -200,7 +200,9 @@ icode-skill 暂停使用（/icode 子命令体系在 Codex 无效），其承担
 | Claude Code 行为准则 | `~/.claude/CLAUDE.md` | Claude Code 配置 |
 | Skills 源目录 | `~/.claude/skills/` | superpowers-zh 安装位置 |
 | Skills Codex 目录 | `~/.codex/skills/*` | 软链指向 `~/.claude/skills/*` |
-| Codex 兼容补丁脚本 | `~/.claude/skills-codex-patch.py` | 重装后恢复 6 个 description 改动 |
+| Codex 兼容补丁脚本 | `~/.claude/skills/scripts/skills-codex-patch.py` | 仓库内唯一实现；重装后恢复历史 Codex 兼容措辞，并调用本地策略 overlay |
+| 本地策略应用脚本 | `~/.claude/skills/scripts/apply-local-skill-overlays` | 检查、预演或应用已审查的本地 skill 策略 |
+| 本地策略补丁 | `~/.claude/skills/overlays/codex-local-policy.patch` | 保存可重复应用的授权、审查和验证规则改动 |
 | 本速查表（Codex 侧快捷访问） | `~/.codex/skills-trigger-guide.md` | 软链指向本文档 |
 | memory | `~/.claude/projects/-home-changyuchun--claude/memory/codex-skills-trigger-mechanism.md` | 跨会话记忆 |
 
@@ -211,17 +213,18 @@ icode-skill 暂停使用（/icode 子命令体系在 Codex 无效），其承担
 **重装或升级 superpowers-zh 后，必须执行以下命令恢复 Codex 兼容改动：**
 
 ```bash
-python3 ~/.claude/skills-codex-patch.py
+python3 ~/.claude/skills/scripts/skills-codex-patch.py
+~/.claude/skills/scripts/apply-local-skill-overlays --check
 ```
 
 | 项 | 说明 |
 |----|------|
-| 脚本位置 | `~/.claude/skills-codex-patch.py` |
-| 作用 | 恢复 6 个 skill 的 Codex 兼容 description 改动：chinese-code-review、chinese-commit-conventions、chinese-documentation、chinese-git-workflow、english-commit-conventions、test-driven-development |
-| 特性 | idempotent，可安全重复执行，已应用的改动自动跳过 |
-| 重装影响 | superpowers-zh 安装会覆盖 SKILL.md 为官方原版（含 /xxx 死锁措辞或自动触发措辞），本脚本一键恢复 Codex 兼容版 |
+| 脚本位置 | `~/.claude/skills/scripts/skills-codex-patch.py` |
+| 作用 | 第 1 层恢复 6 个 skill 的 Codex 兼容 description 及 `using-superpowers` 的平台措辞；第 2 层调用仓库内 policy overlay，恢复授权、测试、review、多 Git 根和证据新鲜度规则 |
+| 特性 | idempotent；已应用时自动跳过。若上游漂移导致 overlay 不能干净应用，会安全失败并要求人工 review |
+| 重装影响 | superpowers-zh 安装会覆盖 SKILL.md 为上游版本；本脚本恢复本地 Codex 兼容层，随后用 `--check` 确认完整策略已生效 |
 
-> 补丁脚本只恢复 description 改动。若重装后 5 个被删 skill（brainstorming/writing-plans/executing-plans/systematic-debugging/verification-before-completion）又缺失，需重新从 superpowers-zh 包提取，见"三、变更记录"中的恢复方法。
+> overlay 不会强行适配未知上游版本。若脚本失败，先查看 `git diff` 和 `scripts/apply-local-skill-overlays --dry-run` 输出，再人工迁移；不要绕过检查强制覆盖。
 
 ## 五、遗留项
 
@@ -239,3 +242,4 @@ python3 ~/.claude/skills-codex-patch.py
 | 2026-07-13 | v1.1 | 新增 TDD 测试约束；test-driven-development skill 改为仅用户明确要求时触发 |
 | 2026-07-13 | v1.2 | 补充"重装维护指引"小节，明确重装后跑补丁脚本恢复 6 个 Codex 兼容改动 |
 | 2026-07-13 | v1.3 | 修正 CLAUDE.md 核心规则第 3 条与 TDD 测试约束的冲突，改为测试按需补充 |
+| 2026-08-07 | v1.4 | 增加仓库内 policy overlay 与安全漂移检查，补齐本地策略的可恢复性 |

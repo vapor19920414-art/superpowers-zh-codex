@@ -7,7 +7,7 @@
 **调度时机：** 规格文档写入 docs/superpowers/specs/ 之后
 
 ```
-Task tool（通用）:
+当前平台的审查子代理（Codex 使用 `spawn_agent`；审查材料自包含时设置 `fork_turns="none"`）：
   description: "审查规格文档"
   prompt: |
     你是一名规格文档审查员。验证此规格是否完整并准备好进行计划编写。

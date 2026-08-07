@@ -1,30 +1,34 @@
 # icode-skill 质量机制吸收记录
 
-> **日期**：2026-07-18
-> **来源**：`~/.claude/skills-orbbec/icode-skill`（参考源，当前未启用）
+> **首次记录**：2026-07-18
+> **最近复核**：2026-08-07
+> **来源**：`~/.claude/skills/icode-skill`（独立 Git 仓库；`SKILL.md` 版本 `v2.14.0`，commit `ccfe991`）
 > **生效体**：`~/.claude/skills/` 下 superpowers 集合（using-superpowers 为路由入口）
-> **状态**：已执行路径 1（机制吸收），icode 本体保持独立不动
+> **状态**：已完成 5 轮选择性吸收；icode 本体保持独立，Claude Code 可用，Codex 侧因 `/icode` 不受支持而暂停
 
 ## 一、背景与对比结论
 
-icode-skill 是端到端**编排框架**（7 步串联 + 状态机 + ticket 目录），靠 `/icode` 子命令驱动；superpowers 集合是**原子能力库**（每个 skill 处理一个节点，靠 description 语义触发）。
+icode-skill 是端到端**编排框架**（步骤 0 + 1～6 主流程，另有 log、doc、limit、README、patch 等独立流程，并配套状态机与 ticket 目录），靠 `/icode` 子命令驱动；superpowers 集合是**原子能力库**（每个 skill 处理一个节点，靠 description 语义触发）。
 
 两者哲学相反（强编排 vs 自由组合、有状态 vs 无状态、命令触发 vs 语义触发），**不宜整体合并**。icode 当前未启用（`/icode` 在 Codex CLI 无效，AGENTS.md 已标"暂停"），仅作参考源。
 
-本次只做**质量机制吸收**：把 icode 4 套可复用的质量机制，提炼泛化后注入 superpowers 对应 skill，以补强 superpowers 在"执行过程约束、对抗验证、证据回指"方面的短板。icode 专属的步骤/状态/ticket 概念不吸收。
+本记录持续做**质量机制吸收**：把 icode 中可复用的机制提炼、泛化后注入 superpowers 对应 skill，以补强执行约束、对抗验证、证据回指、需求收敛和增量验证。icode 专属的步骤、状态、ticket 与补丁编排概念不吸收。
 
 ## 二、吸收映射表（核心）
 
-| # | icode 源文件 | 提炼机制 | 注入目标 skill | 注入锚点 | 注入段标题 | 行号 |
-|---|-------------|---------|---------------|---------|-----------|------|
-| 1 | `references/anti_laziness.md` | 反偷懒约束（16 条偷懒行为） | `using-superpowers/SKILL.md` | `## 平台适配` 前 | `## 执行反偷懒约束` | 58 |
-| 2 | `references/thinking.md` | 深度思考载体分档（MCP/降级文字块） | `using-superpowers/SKILL.md` | `## 执行反偷懒约束` 后 | `## 深度思考载体分档` | 76 |
-| 3 | `references/adversarial.md` | 对抗验证（3 质疑者 + 裁决优先级 + 诚实降级 + 子代理失败处理） | `requesting-code-review/SKILL.md` | `## 红线` 前 | `## 对抗验证增强（可选）` | 96 |
-| 4 | `references/adversarial.md` | 对反馈做对抗验证（替代解释 + 证据充分性 + 主代理实证优先） | `receiving-code-review/SKILL.md` | `## 底线` 前 | `## 对反馈做对抗验证` | 213 |
-| 5 | `references/adversarial.md` | 证据回指纪律（每条结论回指具体证据片段） | `verification-before-completion/SKILL.md` | `## 底线` 前 | `## 证据回指纪律` | 139 |
-| 6 | `references/thinking.md`（对抗质疑三问段） | 调试假设对抗三问（改造式：质疑历史工单 -> 质疑调试假设） | `systematic-debugging/SKILL.md` | 第三阶段第 1 步后、原第 2 步前 | `2. **假设对抗三问（强制必答，缺项视为流程不合规）**` | 159 |
+| # | icode 源文件 | 提炼机制 | 注入目标 skill | 当前段标题 |
+|---|-------------|---------|---------------|-----------|
+| 1 | `references/anti_laziness.md` | 反偷懒约束 | `using-superpowers/SKILL.md` | `## 执行反偷懒约束` |
+| 2 | `references/thinking.md` | 可审计的重要决策记录；不要求暴露内部推理，不强制 MCP | `using-superpowers/SKILL.md` | `## 重要决策记录` |
+| 3 | `references/adversarial.md` | 对抗验证与诚实降级 | `requesting-code-review/SKILL.md` | `## 对抗验证增强（可选）` |
+| 4 | `references/adversarial.md` | 对反馈做对抗验证 | `receiving-code-review/SKILL.md` | `## 对反馈做对抗验证` |
+| 5 | `references/adversarial.md` | 证据回指纪律 | `verification-before-completion/SKILL.md` | `## 证据回指纪律` |
+| 6 | `references/thinking.md` | 调试假设对抗三问 | `systematic-debugging/SKILL.md` | `假设对抗三问` |
+| 14 | `references/necessity_check.md` | 实现前核实现有功能覆盖度与复用边界 | `brainstorming/SKILL.md` | `### 现有功能覆盖度检查` |
+| 15 | `steps/05_deepcheck.md`、`steps/06_audit.md` | 多 Git 根分别取证，避免父仓状态掩盖嵌套仓改动 | `requesting-code-review/SKILL.md`、`verification-before-completion/SKILL.md` | `## 审查范围与多 Git 根`、`## 多 Git 根验证边界` |
+| 16 | `steps/06_audit.md` | 增量修改使旧证据失效，必须重读当前 diff 并重跑受影响验证 | `verification-before-completion/SKILL.md` | `## 证据新鲜度与增量修改` |
 
-**改动统计**：4 文件，+89 行，0 删除。原有内容一字未改，frontmatter（name/description）全部未动，skill 触发机制不受影响。
+> 表中 1～6 为首轮与二轮机制，14～16 为 2026-08-07 新增机制。历史各轮改动统计见后文，不再把早期统计误作当前整体统计。
 
 ## 三、注入原则
 
@@ -37,10 +41,10 @@ icode-skill 是端到端**编排框架**（7 步串联 + 状态机 + ticket 目�
 
 ### icode-skill 更新时
 
-当 `~/.claude/skills-orbbec/icode-skill/references/` 下 4 个源文件有更新，按映射表逐项核对：
+当 `~/.claude/skills/icode-skill/` 更新时，先记录新旧 commit，再按映射表逐项核对：
 
 1. `anti_laziness.md` 改动 → 检查 `using-superpowers` 的「执行反偷懒约束」段是否需同步
-2. `thinking.md` 改动 → 检查 `using-superpowers` 的「深度思考载体分档」段是否需同步
+2. `thinking.md` 改动 → 检查 `using-superpowers` 的「重要决策记录」段是否需同步；不得恢复强制 MCP 或要求输出内部推理的规则
 3. `adversarial.md` 改动 → 同时检查 3 个目标 skill 的注入段（requesting / receiving / verification）
 4. `thinking.md` 的「对抗质疑三问」段改动 -> 检查 `systematic-debugging` 第三阶段「假设对抗三问」段是否需同步。注意：源段针对历史工单，注入段是改造后针对调试假设的，同步时只比对「反确认偏误精神」的提炼点是否变化，不照搬 verdict/工单概念。
 
@@ -48,19 +52,28 @@ icode-skill 是端到端**编排框架**（7 步串联 + 状态机 + ticket 目�
 
 ### superpowers 维护时
 
-- 修改 4 个目标 skill 的 body 时，注意注入段是后加的，不要误删
-- 若调整 `## 红线` / `## 底线` / `## 平台适配` 锚点标题，注入段需同步移位（注入脚本依赖锚点字符串定位）
-- 上游 superpowers 同步（`skills-codex-patch.py` 重跑）后，需重新执行注入或确认注入段未被覆盖
+- 修改目标 skill 的 body 时，注意本地策略段是后加的，不要误删
+- 若调整 `## 红线` / `## 底线` / `## 平台适配` 等历史锚点，需同步检查本地策略段位置，并重新生成、审查 overlay
+- 上游 superpowers 同步后，运行 `scripts/skills-codex-patch.py`，再用 overlay 的 `--check` 确认本地策略未被覆盖
 
-### 重新执行注入
+### 重新应用本地策略
 
-注入脚本存于 `/tmp/inject_quality_mechanisms.py`（一次性）。若需重新注入或迁移，核心逻辑：基于锚点字符串（`## 平台适配` / `## 红线` / `## 底线`）在前面插入对应段。锚点唯一性校验已内置（出现次数 ≠ 1 则跳过该文件）。
+本地策略以仓库内 overlay 保存，不再依赖 `/tmp` 一次性脚本：
+
+```bash
+cd ~/.claude/skills
+scripts/apply-local-skill-overlays --check
+scripts/apply-local-skill-overlays --dry-run
+scripts/apply-local-skill-overlays --apply
+```
+
+`--check` 用于确认策略是否已应用；`--dry-run` 仅判断当前上游是否可安全应用；`--apply` 才会修改文件。脚本先执行反向检查识别“已应用”状态；若上游内容漂移导致补丁无法干净应用，会安全失败并要求人工复核，不强制覆盖。
 
 ## 五、未吸收部分（记录原因）
 
 | icode 能力 | 未吸收原因 |
 |-----------|-----------|
-| 7 步强编排（plan→review→merge→code→deepcheck→audit 固定顺序） | 与 superpowers 自由组合哲学冲突 |
+| 固定主流程与独立 patch/state 编排 | 与 superpowers 自由组合哲学冲突 |
 | 工单状态机 + ticket_id + metadata.json + 断点续跑 | 与 superpowers 无状态原子特性冲突 |
 | `/icode` 子命令触发 | Codex CLI 下无效（AGENTS.md 已标"暂停"） |
 | 工程级知识库（`/icode doc` + project_docs + 段零检索） | 依赖 icode 状态目录，独立性强，不宜拆解注入 |
@@ -71,18 +84,15 @@ icode-skill 是端到端**编排框架**（7 步串联 + 状态机 + ticket 目�
 
 以上能力若未来需要在 superpowers 体系内复现，应作为独立新 skill 设计，而非注入现有 skill。
 
-## 六、回滚方法
+## 六、回退方法
 
-```bash
-cd ~/.claude/skills
-git diff                          # 查看全部注入改动
-git checkout -- using-superpowers/SKILL.md \
-                 requesting-code-review/SKILL.md \
-                 receiving-code-review/SKILL.md \
-                 verification-before-completion/SKILL.md   # 回滚注入
-```
+先用 `git status --short` 和 `git diff -- <目标文件>` 确认目标与影响范围。未获得明确授权时，不执行覆盖式回退。
 
-注入段均以 `## 执行反偷懒约束` / `## 深度思考载体分档` / `## 对抗验证增强（可选）` / `## 对反馈做对抗验证` / `## 证据回指纪律` 为标题，可 grep 定位单独删除。
+- 已提交批次：优先使用 `git revert <commit>` 生成可审计的反向提交。
+- 未提交批次：用户确认具体文件和片段后，使用 `git restore --patch <文件>` 选择性回退。
+- overlay 整体回退：用户确认后可执行 `git apply --reverse overlays/codex-local-policy.patch`；执行前必须先用 `git apply --reverse --check` 验证。
+
+不要使用会覆盖整文件未提交改动的 `git checkout -- <文件>`。
 
 ## 七、二次吸收：systematic-debugging 对抗三问（2026-07-19，改造式注入）
 
@@ -125,7 +135,7 @@ git checkout -- using-superpowers/SKILL.md \
 - **sequential-thinking MCP 载体**：Codex 第三方模型下 MCP 不可用（AGENTS.md provider-aware 策略），本次直接采用文字块形式，不引入 MCP 依赖
 - **verdict 分流标注 / 末轮扩读 / 历史检索注入**：仍依赖 icode 工单系统，不吸收（见五、未吸收部分）
 
-## 八、三次吸收：需求收敛双视角 + 多层审查增强（2026-08-01，直接提炼式）
+## 八、三次吸收：需求收敛多视角 + 多层审查增强（2026-08-01，直接提炼式）
 
 > 本次吸收 2 项 P0 机制，分别注入 `verification-before-completion` 和 `requesting-code-review`，补强"完成前验证只看计划不看需求"和"单层审查遗漏深层问题"两个短板。
 
@@ -133,16 +143,16 @@ git checkout -- using-superpowers/SKILL.md \
 
 | # | icode 源文件 | 提炼机制 | 注入目标 skill | 注入锚点 | 注入段标题 |
 |---|-------------|---------|---------------|---------|-----------|
-| 7 | `steps/06_audit.md` §6.7 | 需求收敛双视角（需求角度 vs 计划角度逐条对照） | `verification-before-completion/SKILL.md` | `## 证据回指纪律` 后、`## 底线` 前 | `## 需求收敛双视角` |
+| 7 | `steps/06_audit.md` §6.7 | 需求收敛多视角（需求、计划、必要性逐条对照） | `verification-before-completion/SKILL.md` | `## 证据回指纪律` 后、`## 底线` 前 | `## 需求收敛三视角` |
 | 8 | `steps/05_deepcheck.md` | 三阶段递进复检（Reverse 逆推 -> Fixed 固定维度 -> Free 自由探索） | `requesting-code-review/SKILL.md` | `## 对抗验证增强（可选）` 后、`## 红线` 前 | `## 多层审查增强（可选）` |
 
 ### 8.2 提炼要点
 
-**吸收 7·需求收敛双视角**：
+**吸收 7·需求收敛多视角**：
 - **源规则**：icode 终审步骤 §6.7 双视角对照（视角 A 需求角度 vs 视角 B 计划角度），依赖 `metadata.requirement` / `limit_refs` 字段
-- **泛化处理**：去除 metadata/limit_refs 依赖，改为"重读用户原始需求 -> 逐条拆解 -> 双视角对照表"
+- **泛化处理**：最初去除 metadata/limit_refs 依赖，改为“重读用户原始需求 -> 逐条拆解 -> 双视角对照表”；2026-08-07 再增加“实现必要性/现有行为”视角
 - **注入逻辑**：补强 verification-before-completion 的"需求已满足"检查--原来只说"逐项核对清单"但不区分计划角度和需求角度，实测会出现"计划功能点全实现但用户需求某个边角遗漏"
-- **与门控函数的关系**：双视角是门控函数在需求维度的细化--把笼统的"需求已满足"拆成逐条可验证的对照表
+- **与门控函数的关系**：多视角是门控函数在需求维度的细化——把笼统的“需求已满足”拆成逐条可验证的对照表
 
 **吸收 8·多层审查增强**：
 - **源规则**：icode 步骤 5 三阶段递进复检（Reverse 只给代码逆推需求 -> Fixed 7 维度逐项覆盖 -> Free 15 角度自由探索），依赖 `03_plan_final.md` / metadata
@@ -153,7 +163,7 @@ git checkout -- using-superpowers/SKILL.md \
 ### 8.3 改动统计
 
 2 文件，+76 行，0 删除：
-- `verification-before-completion/SKILL.md`：+30 行（需求收敛双视角段）
+- `verification-before-completion/SKILL.md`：+30 行（当时为需求收敛双视角段，现已演进为三视角）
 - `requesting-code-review/SKILL.md`：+46 行（多层审查增强段）
 - `doc/icode-mechanism-absorption.md`：+本节
 
@@ -163,18 +173,12 @@ frontmatter（name/description）全部未动，原有内容一字未改，skill
 
 当 `icode-skill/steps/` 下 2 个源文件有更新时，按以下规则核对：
 
-5. `steps/06_audit.md` §6.7 改动 -> 检查 `verification-before-completion` 的「需求收敛双视角」段是否需同步。注意：源规则依赖 metadata.requirement / limit_refs，注入段已泛化去除，同步时只比对「双视角对照核心规则」是否变化（如新增视角、调整收敛判定逻辑）。
+5. `steps/06_audit.md` §6.7 改动 -> 检查 `verification-before-completion` 的「需求收敛三视角」段是否需同步。注意：源规则依赖 metadata.requirement / limit_refs，注入段已泛化去除，同步时只比对“需求、计划、必要性三视角对照”的核心规则是否变化。
 6. `steps/05_deepcheck.md` 三阶段段改动 -> 检查 `requesting-code-review` 的「多层审查增强」段是否需同步。注意：源规则的三阶段含 fast 模式降级、schema 迁移等 icode 专属逻辑，同步时只比对「三阶段递进结构 + Fixed 维度清单 + Free 角度清单」是否变化。
 
-### 8.5 回滚方法追加
+### 8.5 回退说明
 
-```bash
-# 回滚本次两项注入
-git checkout -- verification-before-completion/SKILL.md \
-                 requesting-code-review/SKILL.md
-```
-
-注入段标题为 `## 需求收敛双视角` / `## 多层审查增强（可选）`，可 grep 定位单独删除。
+按“六、回退方法”执行。对应段标题为 `## 需求收敛三视角` / `## 多层审查增强（可选）`，只回退已确认的片段。
 
 ## 九、四次吸收：Codex 兼容性补强 + 修复分档 + 前提假设 + 工具调用模式（2026-08-03，直接提炼式 + 改造式）
 
@@ -235,6 +239,13 @@ frontmatter（name/description）全部未动，skill 触发机制不受影响�
 - `using-superpowers`：批量并行仅适用于无依赖、无副作用或不共享写入目标、且工具允许并行的调用；受资源、速率或工具串行要求约束的调用必须串行。
 - `systematic-debugging`：未明确要求“写单测”“补充测试用例”或“完善测试覆盖”时，不自动新增或修改 `test/` 下测试代码；验证优先复用已有测试、构建、静态检查或用户提供的复现路径。
 
+2026-08-07 再次复核后补充：
+
+- 等待超时只表示“尚未返回”，不能据此判定子代理失败，也不能自动重复派生同一任务；先查询实际状态，再决定继续等待或在明确失败后替换。
+- Codex 的自包含审查任务优先使用 `fork_turns="none"` 和完整任务简报，降低无关上下文污染。
+- 仅在当前接口真实提供清理/关闭能力时调用；不得把不存在的 `close_agent` 当成必需步骤。
+- 只记录事实、假设、取舍和验证边界，不要求输出内部推理过程，也不强制使用 sequential-thinking MCP。
+
 ### 9.4 Codex 兼容性设计
 
 本次吸收的核心创新是**所有涉及 spawn 的段均含"环境无 spawn 工具"降级路径**，确保当前 Codex 会话未暴露该工具时不会失效：
@@ -259,15 +270,9 @@ frontmatter（name/description）全部未动，skill 触发机制不受影响�
 10. `references/anti_laziness.md` 第 26 条改动 -> 检查 `systematic-debugging` 的「修复方案三档分级」段是否需同步。注意：源规则含 `fix_tiers`/`confirmed_B_fixes` metadata 依赖，注入段已泛化去除，同步时只比对"A/B/C 三档判定逻辑 + 最小修复原则"是否变化。
 11. `references/anti_laziness.md` 第 27 条 + `steps/00_init.md` §5 改动 -> 检查 `brainstorming` 的「前提假设验证」段是否需同步。注意：源规则含 `00_init.md §5`/`plan §9` 字段依赖，注入段已泛化去除，同步时只比对"识别外部前提 -> 验证分流 -> 实验设计要求 -> 证伪回写"核心规则是否变化。
 
-### 9.6 回滚方法追加
+### 9.6 回退说明
 
-```bash
-# 回滚本次五项注入
-git checkout -- using-superpowers/SKILL.md \
-                 requesting-code-review/SKILL.md \
-                 systematic-debugging/SKILL.md \
-                 brainstorming/SKILL.md
-```
+按“六、回退方法”执行，只选择性回退已确认的段落：
 
 注入段标题/锚点为：
 - `using-superpowers`：`## 工具调用模式规范`
@@ -275,4 +280,41 @@ git checkout -- using-superpowers/SKILL.md \
 - `systematic-debugging`：`**修复方案三档分级`
 - `brainstorming`：`**前提假设验证`
 
-可 grep 定位单独删除。注意 `requesting-code-review` 的「环境无 spawn 工具的降级路径」是与「显式等待+超时」「重试 2 次」配套的子段，删除时需整体回滚这三段（回滚命令已覆盖）。
+可用 `rg` 定位。注意 `requesting-code-review` 的「环境无 spawn 工具的降级路径」与等待、失败处理配套；回退前须整体评估，不能只删其中一段。
+
+## 十、五次吸收：现有覆盖、多 Git 根与增量证据（2026-08-07）
+
+### 10.1 更新复核结论
+
+- 复核源：`~/.claude/skills/icode-skill`；`SKILL.md` 声明版本为 `v2.14.0`，HEAD 与 `origin/main` 均为 `ccfe991`。该仓库未用同名 Git tag 标记当前提交。
+- 保持边界：不合并 icode 的固定状态机、ticket 目录、patch 编排、Serena 依赖、显式思考 MCP 和低成本模型分流。
+- 选择吸收：实现前核实现有功能覆盖度、多 Git 根分别取证、增量修改后的证据失效与重验。
+
+### 10.2 本轮注入
+
+| 机制 | 目标 | 收敛效果 |
+|------|------|---------|
+| 现有功能覆盖度检查 | `brainstorming` | 先在当前仓库及相关嵌套 Git 根查复用实现，并区分“已覆盖/部分覆盖/未覆盖” |
+| 多 Git 根审查与验证 | `requesting-code-review`、`verification-before-completion` | 每个变更文件按所属 Git 根分别计算状态、diff 与验证边界 |
+| 证据新鲜度 | `verification-before-completion` | 后续修改使受影响的旧证据失效，必须重读当前内容并重跑相关验证 |
+| 需求收敛三视角 | `verification-before-completion` | 在需求和计划之外，增加“是否确有必要、现有行为是否已覆盖” |
+
+### 10.3 superpowers-zh 整体规则修正
+
+本轮同时修正了与本地授权边界不一致的通用规则：
+
+- `brainstorming`、`writing-plans`、`executing-plans`：不再默认创建文档提交或频繁 commit；提交仅在用户明确授权时执行。
+- `writing-plans`、`subagent-driven-development`、`verification-before-completion`：TDD 和新增/修改测试文件仅在用户明确要求测试时启用，其他情况复用已有验证路径。
+- `requesting-code-review`：不再假设 `HEAD~1` 或固定 `main`；审查包含已提交、暂存和未暂存改动，并处理嵌套 Git 根。
+- `subagent-driven-development`：审查包覆盖 committed、staged、unstaged 和 untracked 内容，未授权 commit 时也不会因 HEAD 未变化而漏审实现。
+- `using-git-worktrees`：修改忽略规则、commit 或退回原工作区都必须遵循用户授权，不再自动执行。
+- `using-superpowers`：把“深度思考载体”改为“重要决策记录”，保留可审计结论，不输出内部推理。
+- 各 reviewer prompt：改为平台中性表述，避免把 Claude Code 的 `Task` 工具当成所有运行环境的固定接口。
+
+### 10.4 可恢复 overlay
+
+- 策略补丁：`overlays/codex-local-policy.patch`
+- 应用脚本：`scripts/apply-local-skill-overlays`
+- 重装入口：`~/.claude/skills/scripts/skills-codex-patch.py` 会先恢复历史 Codex 兼容措辞，再调用 overlay 脚本。
+
+overlay 只包含已审查的本地 skill、prompt 和配套 helper script 策略改动，不包含本文档、恢复入口脚本、测试文件或 `icode-skill` 嵌套仓内容。上游漂移时脚本会失败并要求人工审查，不会强制覆盖。
