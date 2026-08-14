@@ -1,0 +1,4 @@
+interface:
+  display_name: "Tuya 业务开发"
+  short_description: "Tuya 业务文档代码历史风险验证闭环开发工作流规范"
+  default_prompt: "Use $tuya-business-development to analyze or implement this Tuya business task."
