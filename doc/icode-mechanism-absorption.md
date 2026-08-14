@@ -1,10 +1,10 @@
 # icode-skill 质量机制吸收记录
 
 > **首次记录**：2026-07-18
-> **最近复核**：2026-08-07
-> **来源**：`~/.claude/skills/icode-skill`（独立 Git 仓库；`SKILL.md` 版本 `v2.14.0`，commit `ccfe991`）
+> **最近复核**：2026-08-14
+> **来源**：`~/.claude/skills/icode-skill`（独立 Git 仓库；`SKILL.md` 版本 `v2.17.0`，commit `00fb6fe`）
 > **生效体**：`~/.claude/skills/` 下 superpowers 集合（using-superpowers 为路由入口）
-> **状态**：已完成 5 轮选择性吸收；icode 本体保持独立，Claude Code 可用，Codex 侧因 `/icode` 不受支持而暂停
+> **状态**：已完成 5 轮选择性吸收；第 6 轮已完成源端复核，2 项候选待确认后才注入。icode 本体保持独立，Claude Code 可用，Codex 侧因 `/icode` 不受支持而暂停
 
 ## 一、背景与对比结论
 
@@ -318,3 +318,31 @@ frontmatter（name/description）全部未动，skill 触发机制不受影响�
 - 重装入口：`~/.claude/skills/scripts/skills-codex-patch.py` 会先恢复历史 Codex 兼容措辞，再调用 overlay 脚本。
 
 overlay 只包含已审查的本地 skill、prompt 和配套 helper script 策略改动，不包含本文档、恢复入口脚本、测试文件或 `icode-skill` 嵌套仓内容。上游漂移时脚本会失败并要求人工审查，不会强制覆盖。
+
+## 十一、第六轮复核：对抗输出卫生与跨轮隔离（2026-08-14，待确认注入）
+
+### 11.1 为什么此前没有更新“吸收点”
+
+第十节复核的基线是 `ccfe991`（`v2.14.0`）。当前 `icode-skill` 已推进到 `00fb6fe`（`v2.17.0`），8 月 12～13 日在 `references/adversarial.md` 新增了跨轮隔离、去引导措辞、输出预算与 verdict 优先等规则；此前没有完成这段增量的逐项复核，所以不能把尚未注入目标 skill 的内容提前记为“已吸收”。
+
+本轮已对 `ccfe991..00fb6fe` 做源端差异复核。下面两项与 `requesting-code-review` 的可选对抗验证直接相关，但尚未修改该 skill：用户确认后再作为独立第六轮注入。
+
+### 11.2 待确认的候选吸收项
+
+| 候选 | icode 源 | 拟注入目标 | 泛化后的约束 | 当前状态 |
+|------|----------|------------|--------------|----------|
+| 17·跨轮隔离与去引导 | `references/adversarial.md`（`6f0d7e3`） | `requesting-code-review/SKILL.md` 的「对抗验证增强（可选）」 | 每轮使用全新、互不共享历史裁决过程的质疑者；prompt 仅提供待核查结论、文件路径和证据指针，不夹带“已确认”“无需质疑”等价值预判。 | 待确认 |
+| 18·verdict 优先与输出卫生 | `references/adversarial.md`（`00fb6fe`） | `requesting-code-review/SKILL.md` 的「对抗验证增强（可选）」 | 先给简短裁决和证据定位，再给必要理由；禁止转储读取到的代码或日志原文；输出预算用于防截断，不得为省 token 压缩到丢失竞争假设或证据。 | 待确认 |
+
+两项均去除了 `StructuredOutput`、`max_output_tokens` 数值、Agent 类型和 icode 产物字段等平台专属实现细节，只保留独立判断与防输出失控的质量目标。
+
+### 11.3 明确不吸收：后台 spawn watchdog
+
+`bee1f66` 的后台 watchdog 依赖 `run_in_background`、`TaskOutput` 与 `TaskStop`。当前 Codex 会话以实际暴露的 agent 生命周期接口为准，不能假定这些参数或停止接口存在；而且对正在运行的 agent 重复等待/轮询也与本地“不要反复轮询阻塞 agent”约束冲突。因此本轮不将“10 分钟无返回后停掉并改前台重跑”写入通用 skill。
+
+现有 `requesting-code-review` 继续采用更保守的规则：等待超时后先查询实际状态；仅在原 agent 明确失败、终止或最终输出不可用时，才启动一个替代任务。
+
+### 11.4 后续同步规则追加
+
+12. `references/adversarial.md` 的 Freshness / Anti-coaching 段改动 → 若候选 17 获确认并注入，检查 `requesting-code-review` 的对抗 prompt 是否仍避免历史裁决污染和预设结论措辞。
+13. `references/adversarial.md` 的输出预算 / verdict 优先段改动 → 若候选 18 获确认并注入，检查 `requesting-code-review` 是否仍保留“裁决优先、禁止原文转储、预算不牺牲必要证据”的平台中性约束。

@@ -160,6 +160,7 @@ mv ~/.codex/hooks.json ~/.codex/hooks.json.bak
 |------|------|
 | `~/.codex/RTK.md` | 全文重写，从"无脑前缀"改为白名单+改名表+禁用表 |
 | `~/.codex/hooks/rtk_auto_prefix.py` | v2 重写，黑名单策略改白名单，新增安全过滤 |
+| `~/.claude/skills/doc/codex-hook/rtk_auto_prefix.py` | 2026-08-14 备份；与源文件 SHA-256 一致，用于保留当前 v2 自动前缀逻辑 |
 | `~/.claude/skills/doc/rtk-hook-optimization.md` | 本文档（追溯记录） |
 
 ## 七、后续优化方向
@@ -167,3 +168,13 @@ mv ~/.codex/hooks.json ~/.codex/hooks.json.bak
 1. **head/tail 自动改名**：解析 `-N` / `-n N` 参数位置，自动改写为 `rtk read --max-lines N` / `--tail-lines N`
 2. **管道链智能前缀**：对 `cmd1 | cmd2` 中的每段独立判断是否加 rtk 前缀（当前只前缀首段）
 3. **rtk 子命令同步**：rtk 更版本后，用 `rtk --help` 输出自动更新 RTK_SUPPORTED 白名单
+
+## 八、hook 备份记录（2026-08-14）
+
+已核对以下备份：
+
+| 源文件 | 备份文件 | SHA-256 | 结论 |
+|--------|----------|---------|------|
+| `~/.codex/hooks/rtk_auto_prefix.py` | `~/.claude/skills/doc/codex-hook/rtk_auto_prefix.py` | `da1d6c80044a576f13b9294e179ae49d89c212756a37f659f42910f65406010b` | 字节一致 |
+
+**备份边界：** `~/.codex/hooks/` 当前还有 `hook_debug_logger.py`，但 `doc/codex-hook/` 中尚未发现它的副本；本次记录不将单文件备份描述为整个 hooks 目录的完整备份。`doc/codex-hook/` 当前是未跟踪目录，后续若需要纳入 Git，应由用户明确授权后再提交。
