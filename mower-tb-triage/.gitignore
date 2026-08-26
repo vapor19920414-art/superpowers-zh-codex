@@ -1,0 +1,11 @@
+# 个人鉴权凭据，切勿分享/提交（同事各自用 tb_cookie.py 生成）
+scripts/.tb_cookie
+config.json
+
+# 本地虚拟环境与运行状态
+.venv/
+.state/
+
+# Python
+__pycache__/
+*.pyc

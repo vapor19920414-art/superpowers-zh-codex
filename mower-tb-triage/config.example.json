@@ -1,0 +1,14 @@
+{
+  "_comment": "复制为 config.json 后填写项目 pid。config.json 和 cookie 均为本机私有文件，禁止提交或分享。",
+  "domain": "tb.orbbec.com",
+  "attachment_hosts": [],
+  "cookie_file": "~/.local/state/mower-tb-triage/tb.cookie",
+  "chrome_profile": "Default",
+  "chrome_base": "~/.config/google-chrome",
+  "log_root": "~/work/log/mower-tb-triage",
+  "projects": {
+    "DLT": { "pid": "REPLACE_WITH_DLT_PROJECT_ID", "label": "RL2601 测试缺陷管理库", "prefix": "DLT" },
+    "DMT": { "pid": "REPLACE_WITH_DMT_PROJECT_ID", "label": "ER2601 测试问题管理库", "prefix": "DMT" },
+    "LXLT": { "pid": "REPLACE_WITH_LXLT_PROJECT_ID", "label": "RL2601-罗西里项目测试缺陷管理库", "prefix": "LXLT" }
+  }
+}
