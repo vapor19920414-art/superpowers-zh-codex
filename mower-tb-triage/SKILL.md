@@ -93,6 +93,8 @@ Codex CLI 不使用 `/icode log|start|fast`。等价自然语言是：
 
 两种修复模式都必须先取得报告认可，并复用报告记录的工作区。复杂度不确定时走完整流程；两者均不自动 commit、push、部署、改 TB 状态或发评论。
 
+用户明确授权 commit 时，每个属于当前 TB 缺陷的原子提交都必须在 subject 末尾附缺陷标识，格式为 `(<PREFIX>-<ID>)`，例如 `fix(<scope>): <summary> (LXLT-70)`。提交语言及其余格式沿用目标 Git 根的历史和相应 commit convention；跨多个 Git 根时分别提交并携带同一标识，无关改动不得带入或复用该标识。
+
 ---
 
 ## 3. 脚本说明
