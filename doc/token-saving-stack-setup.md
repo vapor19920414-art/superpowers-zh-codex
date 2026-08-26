@@ -2,7 +2,7 @@
 
 > 创建日期：2026-07-14
 > 适用环境：Codex CLI + GLM 模型（自定义 provider）+ 嵌入式 C/C++ 项目
-> 部署状态：headroom + RTK + CodeGraph 三件套已就绪
+> 部署状态：headroom + RTK + CodeGraph + Ponytail 四件套已就绪
 
 ---
 
@@ -30,8 +30,9 @@ AI 回复输出                           →  冗长解释浪费输出 token
 | **headroom** | - | MCP | 大文本手动压缩 + 存储 + 取回 | config.toml MCP server | ✅ 已有 |
 | **RTK** | v0.43.0 | CLI 代理 + 指令 | 命令输出自动压缩 60-90% | ~/.local/bin + AGENTS.md 引用 | ✅ 新装 |
 | **CodeGraph** | v1.4.1 | MCP | 代码知识图谱，减少文件读取 | config.toml MCP server | ✅ 新装 |
+| **Ponytail** | v4.9.0 | Codex plugin | 收敛实现与评审中的过度设计 | Codex plugin marketplace | ✅ 已装（默认 full） |
 
-### 三者互补关系
+### 四者互补关系
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -40,8 +41,9 @@ AI 回复输出                           →  冗长解释浪费输出 token
 │  [命令输出] ──▶ RTK 自动压缩 60-90%（rtk 前缀拦截）          │
 │  [文件读取] ──▶ CodeGraph 图谱精准返回（1次MCP调用替代N次读） │
 │  [大文本]   ──▶ headroom 手动压缩+存储+按hash取回            │
+│  [实现评审] ──▶ Ponytail 按 YAGNI 收敛实现（默认 full）       │
 │                                                             │
-│  三者覆盖不同环节，互不冲突，可叠加使用                       │
+│  四者覆盖不同环节，互不冲突，可叠加使用                       │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -252,6 +254,39 @@ codegraph sync                  # 同步变更
 
 ---
 
+### 3.4 Ponytail（默认 full）
+
+**功能**：在实现和评审阶段优先采用 YAGNI、标准库、原生能力和最小正确改动，减少过度设计与无效代码。
+
+**安装方式**：
+
+```bash
+codex plugin marketplace add DietrichGebert/ponytail
+codex plugin add ponytail@ponytail
+```
+
+安装后启动 Codex，通过 `/hooks` 审核并信任 Ponytail 的两个 lifecycle hooks，然后新建会话。Codex Desktop 安装后需要重启。
+
+**常用命令**：
+
+```text
+@ponytail                 # 启用默认 full 模式
+@ponytail-review          # 审查当前 diff 中的过度设计
+@ponytail-audit           # 审计整个仓库的过度设计
+@ponytail-help            # 查看帮助
+@ponytail off             # 临时关闭
+```
+
+**验证方式**：
+
+```bash
+codex plugin list
+```
+
+输出中应包含 `ponytail@ponytail`，且状态为 `installed, enabled`。
+
+---
+
 ## 四、当前 config.toml 完整配置（MCP 部分）
 
 ```toml
@@ -274,7 +309,7 @@ toolTimeout = 90
 required = false
 ```
 
-> RTK 不在 config.toml 中，它通过 `~/.codex/RTK.md` 指令文件 + AGENTS.md 引用工作。
+> RTK 不在 config.toml 中，它通过 `~/.codex/RTK.md` 指令文件 + AGENTS.md 引用工作；Ponytail 由 Codex plugin 管理，也不写入 config.toml。
 
 ---
 
@@ -340,6 +375,7 @@ npx skills add JuliusBrussee/caveman -a codex
 | CodeGraph MCP 配置 | ✅ | config.toml 第 32-38 行 |
 | CodeGraph MCP 可启动 | ✅ | `codegraph serve --mcp` 正常启动 |
 | CodeGraph 项目索引 | ⏳ 待建 | 需在项目目录运行 `codegraph init .` |
+| Ponytail 插件 | ✅ | `codex plugin list` → `ponytail@ponytail installed, enabled 4.9.0` |
 | config.toml 备份 | ✅ | `~/.codex/config.toml.bak.20260714_173342` |
 | AGENTS.md 备份 | ✅ | `~/.codex/AGENTS.md.bak.20260714_173441` |
 
@@ -352,6 +388,7 @@ npx skills add JuliusBrussee/caveman -a codex
 1. **RTK 自动生效**：AI 会根据 RTK.md 指令自动给命令加 `rtk` 前缀，无需手动干预
 2. **CodeGraph 查代码**：需要查函数调用链时，AI 会自动调用 codegraph MCP 工具（需先建索引）
 3. **headroom 压大文本**：遇到超长日志/源码时，AI 会调用 headroom 压缩存储
+4. **Ponytail 收敛实现**：编码和评审时默认使用 full 模式；临时关闭时输入 `@ponytail off`
 
 ### 建索引建议（CodeGraph）
 
@@ -387,21 +424,26 @@ rm ~/.local/bin/rtk
 
 # 卸载 CodeGraph
 rm -rf ~/.codegraph ~/.local/bin/codegraph
+
+# 卸载 Ponytail 并移除 marketplace
+codex plugin remove ponytail@ponytail
+codex plugin marketplace remove ponytail
 ```
 
 ---
 
 ## 八、总结
 
-当前 Codex CLI token 节省工具栈由三层组成：
+当前 Codex CLI token 节省工具栈由四个环节组成：
 
 | 层级 | 工具 | 机制 | 自动/手动 | 节省效果 |
 |------|------|------|-----------|----------|
 | 命令输出层 | RTK | rtk 前缀拦截压缩 | 自动（指令模式） | 60-90% |
 | 代码检索层 | CodeGraph | SQLite 图谱精准返回 | 自动（MCP） | 替代 N 次文件读取 |
 | 大文本层 | headroom | 压缩+存储+取回 | 手动（MCP） | 按需压缩 |
+| 实现评审层 | Ponytail | YAGNI + 最小正确改动 | 自动（plugin） | 减少无效代码与解释成本 |
 
-三者覆盖不同环节，互不冲突，可叠加使用。对于嵌入式 C/C++ 项目，RTK 压缩编译日志和 git 操作输出效果最显著，CodeGraph 的 C/C++ Full support 适合查调用链，headroom 兜底处理漏网的大文本。
+四者覆盖不同环节，互不冲突，可叠加使用。对于嵌入式 C/C++ 项目，RTK 压缩编译日志和 git 操作输出效果最显著，CodeGraph 的 C/C++ Full support 适合查调用链，headroom 兜底处理漏网的大文本，Ponytail 在实现和评审阶段控制不必要的复杂度。
 
 > 本文档路径：`~/.codex/skills/doc/token-saving-stack-setup.md`
 > 配置备份：`~/.codex/config.toml.bak.20260714_173342`、`~/.codex/AGENTS.md.bak.20260714_173441`
