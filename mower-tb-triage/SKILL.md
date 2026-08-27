@@ -64,8 +64,8 @@ env -u PYTHONPATH PYTHONNOUSERSITE=1 ~/.local/share/mower-tb-triage/venv/bin/pyt
 
 # 3) 列缺陷
 env -u PYTHONPATH PYTHONNOUSERSITE=1 ~/.local/share/mower-tb-triage/venv/bin/python <skill-dir>/scripts/tb_pull.py --lib DLT list
-env -u PYTHONPATH PYTHONNOUSERSITE=1 ~/.local/share/mower-tb-triage/venv/bin/python <skill-dir>/scripts/tb_pull.py --lib DLT list --status all
-env -u PYTHONPATH PYTHONNOUSERSITE=1 ~/.local/share/mower-tb-triage/venv/bin/python <skill-dir>/scripts/tb_pull.py --lib LXLT list
+env -u PYTHONPATH PYTHONNOUSERSITE=1 ~/.local/share/mower-tb-triage/venv/bin/python <skill-dir>/scripts/tb_pull.py --lib DLT list --status all --with-status
+env -u PYTHONPATH PYTHONNOUSERSITE=1 ~/.local/share/mower-tb-triage/venv/bin/python <skill-dir>/scripts/tb_pull.py --lib LXLT list --status-names 打开,未完成
 
 # 4) 拉单个缺陷：详情 + 真实评论 + 下载非视频附件
 env -u PYTHONPATH PYTHONNOUSERSITE=1 ~/.local/share/mower-tb-triage/venv/bin/python <skill-dir>/scripts/tb_pull.py defect DLT-29
@@ -105,7 +105,7 @@ Codex CLI 不使用 `/icode log|start|fast`。等价自然语言是：
 |------|------|--------|
 | `scripts/tb_doctor.py` | 只读环境检查 | 检查 Python、依赖、配置、Chrome profile、keyring、私有路径和 `systematic-debugging` |
 | `scripts/tb_cookie.py` | 解密 Chrome cookie → 私有 cookie 文件 | Chrome 149 / cookie DB v24 方案；原子写入并强制 `0600` |
-| `scripts/tb_pull.py` | 拉缺陷 | `list` 列缺陷；`defect <ID>` 拉详情+评论+非视频附件；`--include-video` 仅在用户确认后使用 |
+| `scripts/tb_pull.py` | 拉缺陷 | `list --with-status` 显示真实任务流状态，`--status-names` 按状态名过滤；`defect <ID>` 拉详情+评论+非视频附件；`--include-video` 仅在用户确认后使用 |
 | `scripts/tb_draft.py` | 报告 → 评论草稿骨架 | 切分根因/机制/证据/置信度/修复，顶部标注待人工精炼 |
 | `config.example.json` | 可分享配置模板 | project ID 使用占位值；复制为忽略跟踪的 `config.json` 后填写 |
 
@@ -113,7 +113,7 @@ Codex CLI 不使用 `/icode log|start|fast`。等价自然语言是：
 
 ## 4. 接口知识（脚本已封装，备查 / 排错时用）
 
-- **列缺陷**：`GET /api/projects/{pid}/tasks?isDone=false&count=300` → 直接返回数组；字段 `_id`/`uniqueId`/`content`/`note`/`attachmentsCount`/`isDone`。
+- **列缺陷**：`GET /api/projects/{pid}/tasks?isDone=false&count=300` → 直接返回数组；`isDone` 仅用于兼容 open/done 粗筛，不能代表真实任务流状态。`--with-status` 和 `--status-names` 会逐单读取 `GET /api/v2/tasks/{tid}` 的 `taskflowstatus.name`；按状态名过滤时合并 `isDone=false/true` 两批，在每批 300 条上限内避免遗漏布尔值与任务流状态不同步的任务。
 - **项目身份**：`GET /api/projects/{pid}` → `name` 用作项目目录，`uniqueIdPrefix` 与 task `uniqueId` 组成缺陷目录；配置中的 `label`/`prefix` 仅作缺字段回退。
 - **`commentsCount` 是陈旧缓存**（常显示 0）；真实评论/附件走 `GET /api/v2/tasks/{tid}/activities`，结果在 `result` 字段，评论是 `action=activity.comment.attachments` 类型的 activity，附件在其 `content.files[]`。
 - **附件下载**：`content.files[].url` 可能内嵌短期 token。脚本逐跳校验 HTTPS 和 `attachment_hosts`，且只向 TB 域发送 TB cookie；token 过期时重新拉 activities 刷新 URL 后重试。视频默认不进入下载流程。

@@ -10,6 +10,7 @@
 
 用法示例：
   python3 tb_pull.py --lib DLT list
+  python3 tb_pull.py --lib DLT list --status-names 打开,未完成
   python3 tb_pull.py --lib DLT list --json
   python3 tb_pull.py defect DLT-29
   python3 tb_pull.py defect DLT-29 --include-video  # 仅在用户明确确认后使用
@@ -162,6 +163,7 @@ def api_get(s, cfg, path, **params):
 
 
 def fetch_tasks(s, cfg, pid, status="open"):
+    # ponytail: 目前沿用已验证的 count=300；单桶超过上限时再按实测 API 契约补分页。
     params = {"count": 300}
     if status == "open":
         params["isDone"] = "false"
@@ -175,6 +177,18 @@ def fetch_tasks(s, cfg, pid, status="open"):
 def fetch_activities(s, cfg, tid, count=100):
     data = api_get(s, cfg, f"/api/v2/tasks/{tid}/activities", count=count)
     return data.get("result", data) if isinstance(data, dict) else data
+
+
+def fetch_task_detail(s, cfg, tid):
+    data = api_get(s, cfg, f"/api/v2/tasks/{tid}")
+    if isinstance(data, dict) and isinstance(data.get("result"), dict):
+        return data["result"]
+    return data if isinstance(data, dict) else {}
+
+
+def status_name(task_detail):
+    status = task_detail.get("taskflowstatus") or {}
+    return str(status.get("name") or "").strip() if isinstance(status, dict) else ""
 
 
 def fetch_project(s, cfg, pid):
@@ -210,10 +224,27 @@ def cmd_list(args):
     pid = resolve_pid(cfg, args.lib, args.pid)
     project = fetch_project(s, cfg, pid)
     project_name, prefix = project_identity(cfg, project, args.lib, pid)
-    if args.status == "all":
+    wanted_statuses = None
+    if args.status_names is not None:
+        wanted_statuses = {
+            name.strip() for name in args.status_names.split(",") if name.strip()
+        }
+        if not wanted_statuses:
+            print("[error] --status-names 至少包含一个状态名", file=sys.stderr)
+            return 2
+        tasks = fetch_tasks(s, cfg, pid, "open") + fetch_tasks(s, cfg, pid, "done")
+    elif args.status == "all":
         tasks = fetch_tasks(s, cfg, pid, "open") + fetch_tasks(s, cfg, pid, "done")
     else:
         tasks = fetch_tasks(s, cfg, pid, args.status)
+
+    if args.with_status or wanted_statuses is not None:
+        for task in tasks:
+            task["status_name"] = (
+                status_name(fetch_task_detail(s, cfg, task.get("_id"))) or "unknown"
+            )
+        if wanted_statuses is not None:
+            tasks = [task for task in tasks if task["status_name"] in wanted_statuses]
     tasks.sort(key=lambda t: (t.get("uniqueId") or 0))
 
     if args.json:
@@ -221,14 +252,15 @@ def cmd_list(args):
         print()
         return
 
-    print(f"=== {project_name}（{prefix or pid}，{len(tasks)} 条，status={args.status}）===")
-    print(f"{'ID':10} {'附件':>4} {'状态':4} {'更新':12} 标题")
+    status_filter = ",".join(sorted(wanted_statuses)) if wanted_statuses else args.status
+    print(f"=== {project_name}（{prefix or pid}，{len(tasks)} 条，status={status_filter}）===")
+    print(f"{'ID':10} {'附件':>4} {'状态':8} {'更新':12} 标题")
     for t in tasks:
         uid = t.get("uniqueId", "")
         label = f"{prefix}-{uid}" if prefix and uid else str(uid)
-        done = "完成" if t.get("isDone") else "进行"
+        done = t.get("status_name") or ("完成" if t.get("isDone") else "进行")
         upd = (t.get("updated") or "")[:10] or "-"
-        print(f"{label:10} {str(t.get('attachmentsCount', 0)):>4} {done:4} {upd:12} {(t.get('content') or '')[:50]}")
+        print(f"{label:10} {str(t.get('attachmentsCount', 0)):>4} {done:8} {upd:12} {(t.get('content') or '')[:50]}")
 
 
 # ---------- defect ----------
@@ -430,6 +462,7 @@ def cmd_defect(args):
     project = fetch_project(s, cfg, pid)
     project_name, prefix = project_identity(cfg, project, lib, pid)
     tid = task["_id"]
+    detail = fetch_task_detail(s, cfg, tid)
     uid = task.get("uniqueId")
     raw_label = f"{prefix}-{uid}" if (prefix and uid) else (args.id if not uid else str(uid))
     label = safe_filename(raw_label, None)
@@ -485,7 +518,9 @@ def cmd_defect(args):
     meta = {
         "id": label, "title": task.get("content"), "note": task.get("note"),
         "uniqueId": uid, "_id": tid,
-        "isDone": task.get("isDone"), "updated": task.get("updated"),
+        "status": status_name(detail) or "unknown",
+        "isDone": detail.get("isDone", task.get("isDone")),
+        "updated": detail.get("updated", task.get("updated")),
         "project": {"id": pid, "name": project_name, "prefix": prefix},
         "attachmentsCount_cache": task.get("attachmentsCount"),
         "comments": [{"action": a.get("action"), "created": a.get("created"),
@@ -540,6 +575,10 @@ def main():
     pl = sub.add_parser("list", help="列缺陷")
     pl.add_argument("--status", choices=["open", "done", "all"], default="open")
     pl.add_argument("--json", action="store_true", help="输出原始 JSON")
+    pl.add_argument("--with-status", action="store_true",
+                    help="逐单读取详情并显示真实任务流状态名")
+    pl.add_argument("--status-names",
+                    help="按真实任务流状态名过滤，逗号分隔；合并 open/done 两批（每批最多 300 条）")
     pl.set_defaults(func=cmd_list)
 
     pd = sub.add_parser("defect", help="拉单个缺陷：详情 + 真实评论 + 下载非视频附件")
