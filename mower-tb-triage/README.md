@@ -159,6 +159,8 @@ systematic-debugging 分析日志 → {项目名}/{ID}/{ID}_分析报告.md
 完整/快速修复       报告获认可后复用同一 worktree
       │
 tb_draft.py         报告 → 可粘贴评论草稿（人工润色后发 TB）
+      │
+worktree 收尾审计   仅清理本任务创建且干净、无独有提交的临时工作区
 ```
 
 Codex CLI 没有 `/icode` 自定义命令，可用自然语言：
