@@ -285,6 +285,8 @@ codex plugin list
 
 输出中应包含 `ponytail@ponytail`，且状态为 `installed, enabled`。
 
+**与 Superpowers Skills 的关系**：Superpowers Skills 负责需求、调试和验证流程，Ponytail `full` 负责收敛实现；用户指令和 `AGENTS.md` 优先，Ponytail 不得跳过安全或验证要求。默认保持 `full`，仅在实际出现漏实现或误删必要逻辑时再降为 `lite`。
+
 ---
 
 ## 四、当前 config.toml 完整配置（MCP 部分）
