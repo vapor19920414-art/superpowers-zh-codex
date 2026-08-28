@@ -115,7 +115,7 @@ Tokens saved:      30 (65.2%)
 
 **获取与安装方式**：
 ```bash
-# 安装
+# 安装 需要更新重新执行一次指令
 curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh | sh
 # 安装到 ~/.local/bin/rtk
 
@@ -281,6 +281,12 @@ codex plugin add ponytail@ponytail
 
 ```bash
 codex plugin list
+```
+
+**升级插件**：
+
+```bash
+codex plugin marketplace upgrade
 ```
 
 输出中应包含 `ponytail@ponytail`，且状态为 `installed, enabled`。
@@ -504,12 +510,12 @@ Codex 要求非 managed hook 必须经过用户信任才能运行：
   Hooks need review
   1 hook is new or changed.
   Hooks can run outside the sandbox after you trust them.
- 
+
   1. Review hooks
 › 2. Trust all and continue
   3. Continue without trusting (hooks won't run)
- 
-  Press enter to confirm or esc to go back                                                                                                                                                                         
+
+  Press enter to confirm or esc to go back
 ************************************************************
 
 # 方式 2：跳过信任检查（每次启动需加 flag）
