@@ -109,9 +109,12 @@ Total commands:    1
 Tokens saved:      30 (65.2%)
 ```
 
-**配置文件**：
-- `~/.codex/RTK.md` — RTK 使用指令（让 AI 自动加 rtk 前缀）
+**配置文件与维护位置**：
+- `~/.claude/skills/doc/RTK.md` — RTK 指令实体文件，随 skills 管理仓库维护和提交
+- `~/.codex/RTK.md` — 指向实体文件的相对软链接，作为 Codex 兼容入口
 - `~/.codex/AGENTS.md` 末尾添加了 `@/home/changyuchun/.codex/RTK.md` 引用
+
+日常只编辑实体文件；不要在兼容入口覆盖内容。需要禁用时，先恢复或移除 `AGENTS.md` 中的引用，再删除兼容入口。
 
 **获取与安装方式**：
 ```bash
@@ -424,7 +427,7 @@ cp ~/.codex/config.toml.bak.20260714_173342 ~/.codex/config.toml
 # 恢复 AGENTS.md
 cp ~/.codex/AGENTS.md.bak.20260714_173441 ~/.codex/AGENTS.md
 
-# 删除 RTK.md
+# 删除 Codex 兼容入口（实体文件仍由 skills 管理仓库保留）
 rm ~/.codex/RTK.md
 
 # 卸载 RTK
