@@ -1,0 +1,109 @@
+{
+  "_comment": "把本文件复制为 config.json 后按需修改。脚本查找顺序：config.json -> config.example.json。",
+  "domain": "tb.orbbec.com",
+  "cookie_file": ".tb_cookie",
+  "chrome_profile": "Profile 1",
+  "chrome_base": "~/.config/google-chrome",
+  "log_root": "/home/tudou/work/log",
+
+  "projects": {
+    "LXLT": { "pid": "6a86a99a05fe46110bd2cefe", "label": "RL2601-罗西里项目测试缺陷管理库" },
+    "DLT":  { "pid": "6a585c897aa94615045107a9", "label": "RL2601 测试缺陷管理库" },
+    "DMT":  { "pid": "69e1ab8f05fe46110bd255ef", "label": "ER2601 测试问题管理库" }
+  },
+
+  "project": {
+    "_comment": "创建缺陷用的 LXLT 缺陷库结构。scenario_defect 是【缺陷】场景——/bug/section/all 只展示它；绝不要用 scenario_task，否则缺陷视图看不到且事后不可改。",
+    "pid": "6a86a99a05fe46110bd2cefe",
+    "label": "RL2601-罗西里项目测试缺陷管理库",
+    "uniqueIdPrefix": "LXLT",
+    "tasklistId": "6a86a99a533b9c6279ec47a7",
+    "stageId": "6a86a99a533b9c6279ec47bf",
+    "scenario_defect": "6a86a99a533b9c6279ec47ee",
+    "scenario_task": "6a86a99a533b9c6279ec47e1"
+  },
+
+  "defaults": {
+    "_comment": "创建缺陷时的默认值；命令行可覆盖。带 --firmware 时，--version/--tb-version 仍须在命令行显式给出，不能静默使用这里的 version。tester 支持名字或 _userId。",
+    "tester": "佛印",
+    "version": "v0.0.2",
+    "severity": "Normal",
+    "module": "业务软件",
+    "category": "算法",
+    "type": "功能"
+  },
+  "firmware_tb_version_map": {},
+  "_firmware_tb_version_map_comment": "可选：现场 firmware -> TB 自定义字段版本，例如 {\"V1.3.8_xxx\": \"v0.0.2\"}。未登记时，tb_create.py 仍要求显式给 --version/--tb-version。",
+
+  "customfields": {
+    "version": {
+      "_comment": "版本（必填，lookup 到整机版本仓库）。新版本需先在此登记 id。",
+      "name": "版本",
+      "id": "6a86d5c07594e82d718ea8dd",
+      "type": "lookup",
+      "objectType": "teambition.version",
+      "choices": { "v0.0.2": "6a897c812059129911a31e1d" }
+    },
+    "tester": {
+      "name": "测试人员",
+      "id": "6a86a99a05fe46110bd2cf04",
+      "type": "lookup",
+      "objectType": "teambition.member"
+    },
+    "severity": {
+      "name": "严重等级",
+      "id": "6a86a99a2059129911a31b11",
+      "type": "dropDown",
+      "choices": {
+        "blocker": "69c263effef15730319578a6",
+        "Critical": "69c263effef15730319578a7",
+        "Major": "69c263effef15730319578a8",
+        "Normal": "69c263effef15730319578a9",
+        "Enhancement": "69c263effef15730319578aa"
+      }
+    },
+    "module": {
+      "name": "缺陷模块",
+      "id": "6a86a99a7aa9461504512f4c",
+      "type": "dropDown",
+      "choices": {
+        "硬件": "69c264f007357ee06dda3603",
+        "结构": "69c264f007357ee06dda3604",
+        "SOC固件": "69c264f007357ee06dda3605",
+        "MCU": "69c264f007357ee06dda3606",
+        "业务软件": "69c264f007357ee06dda3607",
+        "APP": "69c264f007357ee06dda3608",
+        "感知算法": "69c264f007357ee06dda3609",
+        "定位算法": "69c264f007357ee06dda360a",
+        "规控算法": "69c264f007357ee06dda360b",
+        "RGB图像": "69c264f007357ee06dda360c",
+        "深度图像": "69c264f007357ee06dda360d"
+      }
+    },
+    "category": {
+      "name": "缺陷分类",
+      "id": "636db7aae98ddb0040a69698",
+      "type": "commongroup",
+      "choices": { "算法": "6a86a99ad869cffbfbbe1b35" }
+    },
+    "serial": {
+      "name": "设备序列号",
+      "id": "6a86a99a2059129911a31b12",
+      "type": "text"
+    },
+    "type": {
+      "name": "缺陷类型",
+      "id": "636db7aae98ddb0040a6969f",
+      "type": "dropDown",
+      "choices": {
+        "功能": "636db7aae98ddb0040a696a0",
+        "界面": "636db7aae98ddb0040a696a1",
+        "兼容": "636db7aae98ddb0040a696a2",
+        "安全": "636db7aae98ddb0040a696a3",
+        "性能": "636db7aae98ddb0040a696a4",
+        "建议": "636db7aae98ddb0040a696a5",
+        "其他": "636db7aae98ddb0040a696a6"
+      }
+    }
+  }
+}
