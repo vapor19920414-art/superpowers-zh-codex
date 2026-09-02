@@ -94,7 +94,7 @@ python3 scripts/tb_create.py --title "TITLE" --desc 描述.md --device SN --firm
 python3 scripts/tb_create.py --title "TITLE" --desc 描述.md --device SN --firmware FW --version TB_VERSION \
     --attach device_logs_20260823.tgz --attach 现场图.png
 
-# SshFileDownloader 本地日志目录（根目录唯一 .tar.gz/.tgz 会自动作为附件）
+# SshFileDownloader 本地日志目录（自动上传关键包 + 完整 userdata.zip）
 LOG_DIR=/work/work_new/RL2601/tuya/TB/SshFileDownloader-20260828/file/20260831_190603
 python3 scripts/tb_create.py --title "TITLE" --desc "$LOG_DIR/E11后面板恢复规控异常_描述.md" \
     --device SN --firmware FW --version TB_VERSION --log-dir "$LOG_DIR"
@@ -119,7 +119,7 @@ python3 scripts/tb_create.py … --desc-text "【现象】…" --receipt ./xxx.t
 | `--version` / `--tb-version` | 给了 `--firmware` 时 ✅ | TB 自定义字段版本，须是 config 登记的选项；不能由默认值静默代填 |
 | `--tester` | | 测试人员（名字或 `_userId`） |
 | `--attach` | | 附件路径，可多次 |
-| `--log-dir` | | 本地日志目录，可多次；根目录须恰有一个 `.tar.gz`/`.tgz` 日志包，脚本只挂该归档，不会上传整份原始目录 |
+| `--log-dir` | | 本地日志目录，可多次；上传唯一 `.tar.gz`/`.tgz` 关键包和完整 `userdata.zip`；只有 `userdata/` 时自动压缩 |
 | `--comment` | | 附件评论文字（默认模板文案） |
 | `--receipt` | `--desc-text` 真创建时 ✅ | 创建收据路径；使用 `--desc` 时默认写为 `<描述文件>.tb-receipt.json` |
 | `--resume-attachments` | | 只继续收据内未完成附件，绝不重新创建任务 |
@@ -128,7 +128,7 @@ python3 scripts/tb_create.py … --desc-text "【现象】…" --receipt ./xxx.t
 
 **收据与断点续传**：真创建会先以 `0600` 原子写入收据，POST 成功后立即记录 task id，随后回读校验缺陷场景和自定义字段，再上传并回读附件。再次执行同一参数时默认只提示已有任务，不会再 POST；附件失败后确认收据对应的任务，使用原命令加 `--resume-attachments` 继续。若 POST 超时且 task id 未知，先到 TB 人工确认，再显式使用 `--adopt-task LXLT-N --resume-attachments`，脚本不会自动猜测或重复建单。
 
-**本地下载目录**：例如 `SshFileDownloader.../file/20260831_190603` 常同时含原始 `userdata/` 和已整理的“关键日志”归档。传 `--log-dir` 时只扫描该目录第一层，且只接受唯一 `.tar.gz`/`.tgz`；没有或存在多个归档会拒绝，避免误传数百 MiB 原始日志、配置或地图数据。
+**本地下载目录**：传 `--log-dir` 时同时上传根目录唯一的 `.tar.gz`/`.tgz` 关键包和完整 `userdata.zip`。若只有 `userdata/`，脚本会先生成 `userdata.zip`；附件上传并经 TB 回读确认后删除该自动生成包。目录原有的 `userdata.zip` 不删除，上传失败时自动生成包也会保留，供 `--resume-attachments` 续传。旧收据仍按原附件清单续传，不会自动追加完整包。
 
 **成功输出**：
 ```

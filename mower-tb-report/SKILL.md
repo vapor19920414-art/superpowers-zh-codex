@@ -21,7 +21,7 @@ description: 测试同学现场复现问题后一键上报 TB 缺陷：登设备
 |------|------|-----------|
 | **缺陷库** | 默认 `LXLT`（RL2601-罗西里项目测试缺陷管理库，pid `6a86a99a05fe46110bd2cefe`） | 用户没指定就默认 LXLT |
 | **问题描述** | 标题 + 描述（现象/复现步骤/设备信息…） | 引导用户提供；模板见 `templates/问题描述模板.md` |
-| **设备日志** | 现场从设备拉，或 SshFileDownloader 本地下载目录 | 设备不在线则要求日志文件/目录；目录只接受唯一根目录归档 |
+| **设备日志** | 现场从设备拉，或 SshFileDownloader 本地下载目录 | 设备不在线则要求日志文件/目录；目录须含唯一关键归档及 `userdata.zip` 或 `userdata/` |
 
 ---
 
@@ -30,6 +30,8 @@ description: 测试同学现场复现问题后一键上报 TB 缺陷：登设备
 - **可写**：本技能目录（`config.json`、下载/打包的日志）、`log_root`。
 - **创建缺陷到 TB**：已打通且**对外不可逆**（团队可见）。创建前先 `--dry-run` 给用户看标题/描述/字段，确认后再真正创建。
 - 发评论/附件：`tb_create.py --attach` 自动完成；文字默认模板文案，可用 `--comment` 改。真创建会落 `0600` 收据，遇到附件失败默认不重建任务，只能由用户确认后显式 `--resume-attachments`。
+- `--log-dir` 同时上传关键包和完整 `userdata.zip`；只有 `userdata/` 时自动压缩，上传并回读确认后删除自动生成包。已有 `userdata.zip` 不删除，上传失败时保留自动生成包供续传。
+- 旧收据继续使用收据内原附件清单，不自动追加完整包，避免破坏既有任务的 fingerprint 与断点续传。
 
 ---
 
@@ -116,7 +118,7 @@ python3 <skill>/scripts/tb_create.py --title "【建图】xxx" --desc 描述.md 
     --device RL601CK20ENS267E0001 --firmware "V1.3.8_RN2601_DEV_20260819-1019" \
     --version v0.0.2 --attach device_logs_20260823.tgz --attach 现场图.png
 
-# 本地 SshFileDownloader 目录：只选根目录唯一的关键日志归档，不上传完整 userdata
+# 本地 SshFileDownloader 目录：上传唯一关键日志归档 + 完整 userdata.zip
 LOG_DIR=/work/work_new/RL2601/tuya/TB/SshFileDownloader-20260828/file/20260831_190603
 python3 <skill>/scripts/tb_create.py --title "【规控算法】xxx" \
     --desc "$LOG_DIR/E11后面板恢复规控异常_描述.md" \
@@ -153,7 +155,7 @@ python3 <skill>/scripts/tb_create.py … --desc-text "【现象】…" --receipt
 
 | 脚本 | 职责 | 关键点 |
 |------|------|--------|
-| `scripts/tb_create.py` | **创建缺陷**（核心） | 固定【缺陷】场景 + 自动填 6 必填字段 + 创建后回读校验 + 收据断点续传；`--log-dir` 选唯一本地日志归档，`--dry-run` 预览 |
+| `scripts/tb_create.py` | **创建缺陷**（核心） | 固定【缺陷】场景 + 自动填 6 必填字段 + 创建后回读校验 + 收据断点续传；`--log-dir` 同传关键包和完整包，`--dry-run` 预览 |
 | `scripts/tb_cookie.py` | 解密 Chrome cookie → `.tb_cookie` | Chrome 149 / cookie DB v24；显式 profile 严格，配置失效且仅一个 profile 时自动回退 |
 | `scripts/tb_pull.py` | 列缺陷 / 发评论（复用） | `--lib LXLT list` 列缺陷；`--lib LXLT comment LXLT-n -t … -a …` 发评论+附件 |
 | `scripts/tb_draft.py` | 分析报告 → 评论草稿（复用） | 切分五段（根因/机制/证据/置信度/修复） |

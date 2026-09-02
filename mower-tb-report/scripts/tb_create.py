@@ -31,7 +31,7 @@
   # 附件失败后，只续传，不会重复创建任务
   python3 scripts/tb_create.py <原参数> --resume-attachments
 
-  # SshFileDownloader 本地日志目录：自动选择唯一的根目录 .tar.gz/.tgz 日志包
+  # SshFileDownloader 本地日志目录：自动上传关键日志包和完整 userdata.zip
   python3 scripts/tb_create.py <原参数> --log-dir /path/to/20260831_190603
 
   # 只想要直链/任务 id（不挂附件）
@@ -41,6 +41,7 @@ import argparse
 import hashlib
 import json
 import os
+import shutil
 import sys
 import tempfile
 
@@ -92,6 +93,7 @@ def resolve_tester(name, cfg, s):
 # 【复现步骤】是开发复现问题的最重要输入，务必写全（前置条件/操作/触发点/复现概率/预期vs实际）。
 REQUIRED_SECTIONS = ("【现象】", "【复现步骤】", "【设备信息】")
 RECEIPT_SCHEMA = 1
+ATTACHMENT_POLICY = "key_and_userdata_v1"
 
 
 def _json_hash(value):
@@ -103,26 +105,58 @@ def _expand_path(path):
     return os.path.abspath(os.path.expanduser(path))
 
 
-def build_attachment_manifest(paths, log_dirs=()):
-    """返回可审计的附件清单；本地日志目录只接受唯一的根目录归档。"""
-    out = []
-    seen = set()
+def _create_userdata_zip(log_dir):
+    """把 userdata/ 原子压缩到同级 userdata.zip，失败时不留下残包。"""
+    target = os.path.join(log_dir, "userdata.zip")
+    fd, tmp_base = tempfile.mkstemp(prefix=".userdata-", dir=log_dir)
+    os.close(fd)
+    os.remove(tmp_base)
+    tmp_zip = tmp_base + ".zip"
+    try:
+        shutil.make_archive(tmp_base, "zip", root_dir=log_dir, base_dir="userdata")
+        try:
+            os.link(tmp_zip, target)
+        except FileExistsError as e:
+            raise RuntimeError(f"压缩期间 userdata.zip 已出现，拒绝覆盖：{target}") from e
+        os.remove(tmp_zip)
+    finally:
+        for path in (tmp_base, tmp_zip):
+            if os.path.exists(path):
+                os.remove(path)
+    print(f"[info] 已生成完整日志包：{target}")
+    return target
 
-    def add_file(path):
+
+def build_attachment_manifest(paths, log_dirs=(), prior_manifest=(), dry_run=False,
+                              include_userdata=True):
+    """返回可审计的附件清单；日志目录包含关键包和完整 userdata 包。"""
+    out = []
+    by_path = {}
+    prior_by_path = {item.get("path"): item for item in prior_manifest}
+
+    def add_file(path, cleanup_after_upload=False, recorded=None):
         absolute = _expand_path(path)
-        if not os.path.isfile(absolute):
-            raise SystemExit(f"[error] 附件不存在或不是普通文件：{path}")
-        if absolute in seen:
+        if absolute in by_path:
+            by_path[absolute]["cleanup_after_upload"] |= cleanup_after_upload
             return
-        seen.add(absolute)
-        st = os.stat(absolute)
-        out.append({
-            "path": absolute,
-            "name": os.path.basename(absolute),
-            "size": st.st_size,
-            "mtime_ns": st.st_mtime_ns,
-            "status": "pending",
-        })
+        if recorded is None and not os.path.isfile(absolute):
+            raise SystemExit(f"[error] 附件不存在或不是普通文件：{path}")
+        if recorded is None:
+            st = os.stat(absolute)
+            item = {
+                "path": absolute,
+                "name": os.path.basename(absolute),
+                "size": st.st_size,
+                "mtime_ns": st.st_mtime_ns,
+                "st_dev": st.st_dev,
+                "st_ino": st.st_ino,
+                "status": "pending",
+            }
+        else:
+            item = dict(recorded)
+        item["cleanup_after_upload"] = cleanup_after_upload
+        out.append(item)
+        by_path[absolute] = item
 
     for path in paths:
         add_file(path)
@@ -141,9 +175,69 @@ def build_attachment_manifest(paths, log_dirs=()):
                 f"[error] --log-dir 必须包含唯一的根目录 .tar.gz/.tgz 日志包：{log_dir}（当前：{names}）。\n"
                 "        请先生成关键日志归档，或用 --attach 明确指定单个文件。"
             )
-        print(f"[info] 本地日志目录：{absolute} -> 附件 {os.path.basename(archives[0])}")
+        if not include_userdata:
+            print(f"[info] 旧收据沿用原附件策略：{os.path.basename(archives[0])}")
+            add_file(archives[0])
+            continue
+
+        full_zip = os.path.join(absolute, "userdata.zip")
+        userdata_dir = os.path.join(absolute, "userdata")
+        prior = prior_by_path.get(full_zip)
+        generated = bool(prior and prior.get("cleanup_after_upload"))
+        if os.path.isfile(full_zip):
+            pass
+        elif generated:
+            # 自动生成包在成功后会删除；复跑时沿用收据，避免再次压缩。
+            pass
+        elif prior:
+            raise SystemExit(f"[error] 收据中的完整日志包已不存在：{full_zip}")
+        elif not os.path.isdir(userdata_dir):
+            raise SystemExit(f"[error] --log-dir 缺少 userdata.zip 或 userdata/：{log_dir}")
+        elif dry_run:
+            prior = {
+                "path": full_zip,
+                "name": "userdata.zip",
+                "size": None,
+                "mtime_ns": None,
+                "status": "planned",
+            }
+            generated = True
+        else:
+            _create_userdata_zip(absolute)
+            generated = True
+
+        print(f"[info] 本地日志目录：{absolute} -> 关键包 {os.path.basename(archives[0])} + 完整包 userdata.zip")
         add_file(archives[0])
+        add_file(full_zip, cleanup_after_upload=generated,
+                 recorded=prior if generated else None)
     return out
+
+
+def verify_generated_archive_identity(entry):
+    """自动包被替换或修改后拒绝上传、拒绝删除。"""
+    path = entry["path"]
+    if os.path.basename(path) != "userdata.zip":
+        raise RuntimeError(f"自动清理目标不是 userdata.zip：{path}")
+    if not os.path.isfile(path) or os.path.islink(path):
+        raise RuntimeError(f"自动生成的完整日志包不存在或类型已变化：{path}")
+    st = os.stat(path, follow_symlinks=False)
+    expected = tuple(entry.get(key) for key in ("st_dev", "st_ino", "size", "mtime_ns"))
+    actual = (st.st_dev, st.st_ino, st.st_size, st.st_mtime_ns)
+    if None in expected or actual != expected:
+        raise RuntimeError(f"自动生成的完整日志包身份已变化，拒绝操作：{path}")
+
+
+def cleanup_generated_archives(manifest):
+    """仅删除本次流程自动生成且已上传确认的 userdata.zip。"""
+    for entry in manifest:
+        if not entry.get("cleanup_after_upload"):
+            continue
+        path = entry["path"]
+        if os.path.exists(path):
+            verify_generated_archive_identity(entry)
+            os.remove(path)
+            print(f"[ok] 已删除自动生成的完整日志包：{path}")
+        entry["cleanup_status"] = "removed"
 
 
 def receipt_path_for(args):
@@ -416,6 +510,8 @@ def attach_files(args, cfg, s, tid, manifest):
         return None, []
     tokens = []
     for entry in manifest:
+        if entry.get("cleanup_after_upload"):
+            verify_generated_archive_identity(entry)
         token, fname, ftype, size = tp.upload_attachment(s, cfg, tid, entry["path"])
         tokens.append(token)
         print(f"  [upload] {fname}（{size:,} bytes, {ftype}）")
@@ -454,7 +550,7 @@ def main():
     ap.add_argument("--tester", default=None, help="测试人员（名字或 _userId，默认取 config.defaults.tester）")
     ap.add_argument("--attach", action="append", default=[], help="附件文件路径（可多次），上传后挂到一条评论")
     ap.add_argument("--log-dir", action="append", default=[],
-                    help="本地日志目录（可多次）；目录根部须恰有一个 .tar.gz/.tgz 日志包")
+                    help="本地日志目录（可多次）；自动上传唯一关键包和完整 userdata.zip")
     ap.add_argument("--comment", help="附件评论文字（默认模板文案）")
     ap.add_argument("--receipt", help="创建收据路径；省略时使用 <描述文件>.tb-receipt.json")
     ap.add_argument("--resume-attachments", action="store_true",
@@ -488,7 +584,18 @@ def main():
     note = build_note(desc_text, args)
     customfields = build_customfields(args, cfg, s)
     body = build_task_body(args, cfg, note, customfields)
-    manifest = build_attachment_manifest(args.attach, args.log_dir)
+    path = receipt_path_for(args)
+    if not args.dry_run and not path:
+        raise SystemExit("[error] 使用 --desc-text 真创建时必须额外给 --receipt，避免丢失创建收据。")
+    receipt = load_receipt(path) if path else None
+    legacy_receipt = bool(receipt and not receipt.get("attachment_policy"))
+    manifest = build_attachment_manifest(
+        args.attach,
+        args.log_dir,
+        prior_manifest=(receipt or {}).get("attachments", ()),
+        dry_run=args.dry_run,
+        include_userdata=not legacy_receipt,
+    )
 
     if args.dry_run:
         print("=== DRY RUN：将创建以下任务（未真正创建）===")
@@ -499,9 +606,6 @@ def main():
             print("[info] 将挂附件：" + "、".join(item["name"] for item in manifest))
         return
 
-    path = receipt_path_for(args)
-    if not path:
-        raise SystemExit("[error] 使用 --desc-text 真创建时必须额外给 --receipt，避免丢失创建收据。")
     fingerprint = _json_hash({
         "body": body,
         "attachments": [
@@ -510,7 +614,6 @@ def main():
         ],
         "comment": args.comment or "",
     })
-    receipt = load_receipt(path)
     if receipt:
         if receipt.get("request_fingerprint") != fingerprint:
             raise SystemExit("[error] 收据与当前标题/字段/附件不一致；为避免重复建单已停止。")
@@ -540,6 +643,7 @@ def main():
             raise SystemExit("[error] 未找到收据，不能使用 --resume-attachments/--adopt-task。")
         receipt = {
             "schema": RECEIPT_SCHEMA,
+            "attachment_policy": ATTACHMENT_POLICY,
             "request_fingerprint": fingerprint,
             "request": {
                 "title": args.title,
@@ -592,6 +696,15 @@ def main():
         receipt["last_error"] = safe_error_label(e)
         write_receipt(path, receipt)
         raise RuntimeError(f"附件未完成；已保留收据 {path}，请确认后用 --resume-attachments 继续。") from e
+
+    write_receipt(path, receipt)
+    try:
+        cleanup_generated_archives(manifest)
+    except Exception as e:
+        receipt["state"] = "cleanup_pending"
+        receipt["last_error"] = safe_error_label(e)
+        write_receipt(path, receipt)
+        raise RuntimeError(f"附件已上传，但自动生成的 userdata.zip 清理失败；收据：{path}") from e
 
     receipt["state"] = "complete"
     receipt.pop("last_error", None)
