@@ -72,11 +72,17 @@
 
 报告状态为“待用户复核”后停止代码修改。只有用户明确表示报告无问题并要求修复，才能继续。
 
-## 5. 复用 worktree 进入修复
+## 5. 确认工作区后进入修复
 
-进入修复前先从报告读取工作区绑定，并用 `git worktree list`、`git status --short --branch` 和 `git rev-parse HEAD` 校验路径、分支、仓库及基线。绑定有效就原地复用；失效或冲突时说明具体问题并等待用户决定，禁止静默新建第二个顶层 worktree。
+进入修复前先检查用户本次指令是否明确选择当前检出、复用指定 worktree 或新建 worktree。未明确时必须先询问并取得确认，不得自行创建、复用或切换 worktree。
 
-RL2601 这类“顶层管理仓 + 多个被忽略的独立业务仓”需要额外门禁：顶层 worktree 不会自动包含 `hmi_note`、`broker`、`mission_controller`、`mcu_communication` 等业务仓。分析阶段先确定真实影响模块，不预建全部子仓；报告获认可、进入修复前，必须为每个实际受影响业务仓创建独立 worktree，落到顶层 worktree 的同名相对路径，并把路径/分支写回报告。禁止软链到主工作区业务仓，也禁止在原业务仓直接修改。未确定影响模块时保持“待定”，不得用空的顶层 worktree 宣称具备可构建性。
+- 选择当前检出：逐个核对实际受影响 Git 根的 `git status --short --branch` 和基线，保留无关改动并在当前目录修改；不得因工作区不干净而擅自改用 worktree。
+- 选择复用 worktree：从报告或用户指令读取绑定，并用 `git worktree list`、`git status --short --branch` 和 `git rev-parse HEAD` 校验路径、分支、仓库及基线。失效或冲突时说明具体问题并等待用户决定。
+- 选择新建 worktree：先向用户列明准备创建的仓库、路径和分支；确认范围只覆盖所列对象。取得明确确认后，才使用 `using-git-worktrees` 或执行 `git worktree add`，并把路径、分支、基线和归属写回报告。
+
+任何分支都禁止静默新建第二个 worktree 或改到其他工作区。
+
+RL2601 这类“顶层管理仓 + 多个被忽略的独立业务仓”需要额外门禁：顶层 worktree 不会自动包含 `hmi_note`、`broker`、`mission_controller`、`mcu_communication` 等业务仓。分析阶段先确定真实影响模块，不预建全部子仓。用户选择当前检出时，逐个核对并使用实际受影响业务仓；用户选择 worktree 时，先列出需要复用或创建的顶层仓和业务子仓，取得对这些精确对象的确认后再执行，并把路径/分支写回报告。禁止软链到其他工作区业务仓。未确定影响模块时保持“待定”，不得用空的顶层 worktree 宣称具备可构建性。
 
 分流规则：
 
