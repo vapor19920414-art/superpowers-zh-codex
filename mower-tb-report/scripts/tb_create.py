@@ -41,13 +41,16 @@ import argparse
 import hashlib
 import json
 import os
-import shutil
 import sys
+import tarfile
 import tempfile
+import time
+import zipfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import tb_pull as tp  # noqa: E402
+import tb_version as tv  # noqa: E402
 
 
 def load_config():
@@ -65,6 +68,35 @@ def get_choice(cf_key, value, cfg):
         return value, value
     raise SystemExit(
         f"[error] {cf.get('name', cf_key)} 没有选项 '{value}'。可用：{', '.join(choices)}"
+    )
+
+
+def resolve_version(value, cfg, s):
+    """解析 TB 版本 label→id；未登记时自动从项目任务反查并登记，避免手工查 id。
+
+    查询顺序：config 已登记 → 直接传 id → 项目任务反查（命中则自动登记）。
+    """
+    try:
+        ver_id, _ = get_choice("version", value, cfg)
+        return ver_id
+    except SystemExit:
+        pass
+    found = tv.discover_versions(cfg, s)
+    if value in found:
+        ver_id = found[value]["id"]
+        try:
+            ok, msg = tv.register_version_choice(cfg, value, ver_id)
+            print(f"[info] 已自动登记 TB 版本：{msg}" if ok else f"[warn] 版本登记跳过：{msg}")
+        except Exception as e:
+            print(f"[warn] 自动登记版本失败（不影响本次用 id 建单）：{e}")
+        return ver_id
+    for vid in {info["id"] for info in found.values()}:
+        if value == vid:
+            return value
+    avail = "、".join(sorted(found, key=str.lower)) or "（项目任务里未发现任何版本）"
+    raise SystemExit(
+        f"[error] TB 版本没有选项 '{value}'，且项目任务里也未找到该版本。可用：{avail}\n"
+        "        全新版本需先在 TB 创建该版本对象；已用版本可先跑 tb_version.py list/register 登记。"
     )
 
 
@@ -105,6 +137,37 @@ def _expand_path(path):
     return os.path.abspath(os.path.expanduser(path))
 
 
+def _zipinfo_dt(epoch_mtime):
+    """ZIP 不支持 1980 之前时间；设备日志里常见 mtime=0（1970），钳位到 1980-01-01 避免压缩崩溃。"""
+    if epoch_mtime < 315532800:  # 1980-01-01 00:00:00 UTC
+        return (1980, 1, 1, 0, 0, 0)
+    t = time.localtime(epoch_mtime)
+    return (t.tm_year, t.tm_mon, t.tm_mday, t.tm_hour, t.tm_min, t.tm_sec)
+
+
+def _write_userdata_zip(zip_path, root_dir, base_dir):
+    """把 root_dir/base_dir 压缩到 zip_path；结构与 make_archive 一致但会钳位 1980 前时间戳。"""
+    base_abs = os.path.join(root_dir, base_dir)
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED, allowZip64=True) as zf:
+        zi = zipfile.ZipInfo(base_dir.rstrip("/") + "/")
+        zi.date_time = (1980, 1, 1, 0, 0, 0)
+        zf.writestr(zi, b"")
+        for dirpath, dirnames, filenames in os.walk(base_abs):
+            for d in sorted(dirnames):
+                ap = os.path.join(dirpath, d)
+                arc = os.path.relpath(ap, root_dir).replace(os.sep, "/") + "/"
+                zi = zipfile.ZipInfo(arc, _zipinfo_dt(os.stat(ap).st_mtime))
+                zf.writestr(zi, b"")
+            for f in sorted(filenames):
+                ap = os.path.join(dirpath, f)
+                arc = os.path.relpath(ap, root_dir).replace(os.sep, "/")
+                st = os.stat(ap)
+                zi = zipfile.ZipInfo(arc, _zipinfo_dt(st.st_mtime))
+                zi.compress_type = zipfile.ZIP_DEFLATED
+                with open(ap, "rb") as fh:
+                    zf.writestr(zi, fh.read())
+
+
 def _create_userdata_zip(log_dir):
     """把 userdata/ 原子压缩到同级 userdata.zip，失败时不留下残包。"""
     target = os.path.join(log_dir, "userdata.zip")
@@ -113,7 +176,7 @@ def _create_userdata_zip(log_dir):
     os.remove(tmp_base)
     tmp_zip = tmp_base + ".zip"
     try:
-        shutil.make_archive(tmp_base, "zip", root_dir=log_dir, base_dir="userdata")
+        _write_userdata_zip(tmp_zip, log_dir, "userdata")
         try:
             os.link(tmp_zip, target)
         except FileExistsError as e:
@@ -124,6 +187,41 @@ def _create_userdata_zip(log_dir):
             if os.path.exists(path):
                 os.remove(path)
     print(f"[info] 已生成完整日志包：{target}")
+    return target
+
+
+# --log-dir 缺唯一关键归档时，自动从这些节点打包，省去手工 tar。
+KEY_LOG_NODES = (
+    "shell_node", "mcu_communication_node", "mission_controller_node",
+    "broker_node", "map_service_node", "tuya_communication_node",
+    "hmi", "kernel", "coredump",
+)
+KEY_LOG_META_FILES = ("reset_reason.txt", "reset_count.txt", "product_profile.log")
+
+
+def _auto_key_archive(log_dir):
+    """没有唯一关键归档时，从 userdata/log 按关键节点自动生成一个，避免手工打包。"""
+    log_root = os.path.join(log_dir, "userdata", "log")
+    picks = []
+    for node in KEY_LOG_NODES:
+        p = os.path.join(log_root, node)
+        if os.path.isdir(p):
+            picks.append(p)
+    for meta in KEY_LOG_META_FILES:
+        p = os.path.join(log_root, meta)
+        if os.path.isfile(p):
+            picks.append(p)
+    if not picks:
+        raise SystemExit(
+            f"[error] --log-dir 缺少唯一的 .tar.gz/.tgz 关键日志包，且 userdata/log 下未找到关键节点，无法自动打包：{log_dir}"
+        )
+    name = os.path.basename(log_dir.rstrip(os.sep)) + "_关键日志.tar.gz"
+    target = os.path.join(log_dir, name)
+    with tarfile.open(target, "w:gz") as tf:
+        for p in picks:
+            tf.add(p, arcname=os.path.join("关键日志", os.path.relpath(p, log_dir)))
+    nodes = ", ".join(os.path.basename(p) for p in picks)
+    print(f"[info] 已自动生成关键日志包：{target}（节点：{nodes}）")
     return target
 
 
@@ -169,6 +267,9 @@ def build_attachment_manifest(paths, log_dirs=(), prior_manifest=(), dry_run=Fal
                 entry.path for entry in entries
                 if entry.is_file() and entry.name.lower().endswith((".tar.gz", ".tgz"))
             )
+        if not archives and os.path.isdir(os.path.join(absolute, "userdata")):
+            # 没有唯一关键归档但存在 userdata/ 时自动生成，省去手工打包步骤。
+            archives = [_auto_key_archive(absolute)]
         if len(archives) != 1:
             names = "、".join(os.path.basename(path) for path in archives) or "无"
             raise SystemExit(
@@ -373,8 +474,8 @@ def apply_defaults_and_validate_versions(args, cfg):
 
 def build_customfields(args, cfg, s):
     out = []
-    # 版本（lookup teambition.version）
-    ver_id, _ = get_choice("version", args.version, cfg)
+    # 版本（lookup teambition.version）；未登记时自动从项目任务反查并登记
+    ver_id = resolve_version(args.version, cfg, s)
     out.append({"_customfieldId": cfg["customfields"]["version"]["id"], "type": "lookup",
                 "objectType": "teambition.version", "value": [{"_id": ver_id}]})
     # 测试人员（lookup teambition.member）

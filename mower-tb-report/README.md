@@ -60,6 +60,7 @@ python3 scripts/tb_create.py --title "【建图】xxx" --desc 描述.md \
 | `defaults.tester` | 默认测试人员（名字或 `_userId`） | `佛印` | 改成本人 |
 | `defaults.module/severity/type` | 缺陷默认字段 | 业务软件 / Normal / 功能 | 按习惯改 |
 | `firmware_tb_version_map` | 可选的“现场固件 → TB 版本字段”白名单 | 空 | 有可靠映射再登记；未登记时仍须显式传 `--version` |
+| `customfields.version.choices` | TB 版本 label→id 映射 | 已登记常用版本 | 无需手工改：`tb_create.py` 遇到未登记版本会从项目任务自动反查并登记；也可 `tb_version.py sync` 全量登记 |
 
 > `--profile` 明确指定时绝不猜测；未指定且配置的 profile 不存在、机器上又只发现一个 profile 时，`tb_cookie.py` 本次自动回退并打印警告。其余情况会列出可用 profile，要求人工选择。
 
@@ -116,10 +117,10 @@ python3 scripts/tb_create.py … --desc-text "【现象】…" --receipt ./xxx.t
 | `--module` | | 硬件/结构/SOC固件/MCU/业务软件/APP/感知算法/定位算法/规控算法/RGB图像/深度图像 |
 | `--category` | | 缺陷分类（commongroup） |
 | `--type` | | 功能/界面/兼容/安全/性能/建议/其他 |
-| `--version` / `--tb-version` | 给了 `--firmware` 时 ✅ | TB 自定义字段版本，须是 config 登记的选项；不能由默认值静默代填 |
+| `--version` / `--tb-version` | 给了 `--firmware` 时 ✅ | TB 自定义字段版本；未登记时会自动从项目任务反查并登记，全新版本（无任何任务用过）才需手动处理 |
 | `--tester` | | 测试人员（名字或 `_userId`） |
 | `--attach` | | 附件路径，可多次 |
-| `--log-dir` | | 本地日志目录，可多次；上传唯一 `.tar.gz`/`.tgz` 关键包和完整 `userdata.zip`；只有 `userdata/` 时自动压缩 |
+| `--log-dir` | | 本地日志目录，可多次；上传唯一 `.tar.gz`/`.tgz` 关键包和完整 `userdata.zip`；目录只有 `userdata/` 时自动生成关键包并自动压缩（含 1980 前时间戳钳位） |
 | `--comment` | | 附件评论文字（默认模板文案） |
 | `--receipt` | `--desc-text` 真创建时 ✅ | 创建收据路径；使用 `--desc` 时默认写为 `<描述文件>.tb-receipt.json` |
 | `--resume-attachments` | | 只继续收据内未完成附件，绝不重新创建任务 |
@@ -128,7 +129,7 @@ python3 scripts/tb_create.py … --desc-text "【现象】…" --receipt ./xxx.t
 
 **收据与断点续传**：真创建会先以 `0600` 原子写入收据，POST 成功后立即记录 task id，随后回读校验缺陷场景和自定义字段，再上传并回读附件。再次执行同一参数时默认只提示已有任务，不会再 POST；附件失败后确认收据对应的任务，使用原命令加 `--resume-attachments` 继续。若 POST 超时且 task id 未知，先到 TB 人工确认，再显式使用 `--adopt-task LXLT-N --resume-attachments`，脚本不会自动猜测或重复建单。
 
-**本地下载目录**：传 `--log-dir` 时同时上传根目录唯一的 `.tar.gz`/`.tgz` 关键包和完整 `userdata.zip`。若只有 `userdata/`，脚本会先生成 `userdata.zip`；附件上传并经 TB 回读确认后删除该自动生成包。目录原有的 `userdata.zip` 不删除，上传失败时自动生成包也会保留，供 `--resume-attachments` 续传。旧收据仍按原附件清单续传，不会自动追加完整包。
+**本地下载目录**：传 `--log-dir` 时同时上传关键包和完整 `userdata.zip`。目录只有 `userdata/` 时，脚本会**自动生成关键包**（从 shell/mcu/mission/broker/map_service/tuya/kernel/coredump 等关键节点打包）并**自动压缩 `userdata.zip`**（设备文件 mtime=0 会钳位到 1980，不会崩溃）；若目录已有唯一的 `.tar.gz`/`.tgz` 关键包则直接复用。附件上传并经 TB 回读确认后删除该自动生成包；目录原有的 `userdata.zip` 不删除，上传失败时自动生成包也会保留，供 `--resume-attachments` 续传。旧收据仍按原附件清单续传，不会自动追加完整包。
 
 **成功输出**：
 ```
@@ -143,7 +144,18 @@ python3 scripts/tb_pull.py --lib LXLT list                      # 列 LXLT 缺�
 python3 scripts/tb_pull.py --lib LXLT comment LXLT-49 -t "文字" -a 文件   # 发评论+附件
 ```
 
+### `tb_version.py` —— TB 版本发现 / 登记（新版本不再手动查 id）
+```bash
+python3 scripts/tb_version.py list                 # 列出项目任务里出现过的全部版本（标注已/未登记）
+python3 scripts/tb_version.py register v0.0.8      # 把某版本号登记到 config.json
+python3 scripts/tb_version.py sync                 # 把项目里出现过的版本一次性全量登记
+python3 scripts/tb_version.py list --json          # JSON 输出
+```
+说明：TB 没有公开的“列版本”API，本工具从项目已有任务反查“用过的版本”label→id。**已用过的版本**在 `tb_create.py` 传 `--version` 时会自动反查并登记，无需手工操作；只有**全新版本**（项目里还没有任何任务用过）才需要先在 TB 创建版本对象后手动登记。
+
 ---
+
+
 
 ## ⑤ 问题描述格式（`templates/问题描述模板.md`）
 
@@ -227,6 +239,7 @@ mower-tb-report/
     ├── tb_create.py          # 创建缺陷（核心）：缺陷场景 + 必填字段 + 附件
     ├── tb_cookie.py          # 解密 Chrome cookie → .tb_cookie
     ├── tb_pull.py            # 列缺陷 / 发评论（复用）
+    ├── tb_version.py         # TB 版本发现 / 登记（list / register / sync）
     ├── tb_draft.py           # 分析报告 → 评论草稿（复用）
     └── pull_device_logs.sh   # 设备日志 → 本地
 ```

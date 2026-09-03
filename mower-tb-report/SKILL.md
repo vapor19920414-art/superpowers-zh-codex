@@ -30,7 +30,8 @@ description: 测试同学现场复现问题后一键上报 TB 缺陷：登设备
 - **可写**：本技能目录（`config.json`、下载/打包的日志）、`log_root`。
 - **创建缺陷到 TB**：已打通且**对外不可逆**（团队可见）。创建前先 `--dry-run` 给用户看标题/描述/字段，确认后再真正创建。
 - 发评论/附件：`tb_create.py --attach` 自动完成；文字默认模板文案，可用 `--comment` 改。真创建会落 `0600` 收据，遇到附件失败默认不重建任务，只能由用户确认后显式 `--resume-attachments`。
-- `--log-dir` 同时上传关键包和完整 `userdata.zip`；只有 `userdata/` 时自动压缩，上传并回读确认后删除自动生成包。已有 `userdata.zip` 不删除，上传失败时保留自动生成包供续传。
+- `--log-dir` 同时上传关键包和完整 `userdata.zip`；目录只有 `userdata/` 时**自动生成关键包**并**自动压缩**（设备 mtime=0 会钳位到 1980，不再崩溃），上传并回读确认后删除自动生成包。已有 `userdata.zip` 不删除，上传失败时保留自动生成包供续传。
+- **版本自动登记**：`tb_create.py` 传未登记的 `--version` 时，会从项目任务自动反查 label→id 并写入 config.json（本技能目录，可写）；TB 无“列版本”API，只能发现“已用过的版本”，全新版本需先在 TB 创建版本对象。
 - 旧收据继续使用收据内原附件清单，不自动追加完整包，避免破坏既有任务的 fingerprint 与断点续传。
 
 ---
@@ -50,7 +51,7 @@ description: 测试同学现场复现问题后一键上报 TB 缺陷：登设备
 
 版本（lookup 整机版本）、测试人员（lookup 成员）、严重等级（下拉）、缺陷模块（下拉）、缺陷分类（commongroup）、设备序列号（text）。`tb_create.py` 会自动填，但：
 - `--device` 必填（设备序列号 = 必填字段）。
-- 选项名来自 config `customfields.*.choices`；给了未登记的选项会报错并列出可用项。
+- 选项名来自 config `customfields.*.choices`；**版本**未登记时会自动从项目任务反查并登记（见 3.3 与 `tb_version.py`），其它字段未登记仍报错并列出可用项。
 - **现场 `--firmware` 与 TB 的 `--version/--tb-version` 是不同字段**。只要填写现场固件，就必须显式填写已登记的 TB 版本；若配置了 `firmware_tb_version_map`，两者还必须匹配。不可用 `defaults.version` 猜测。
 
 ### 2.3 设备日志位置（10.5.5.1）
@@ -158,6 +159,7 @@ python3 <skill>/scripts/tb_create.py … --desc-text "【现象】…" --receipt
 | `scripts/tb_create.py` | **创建缺陷**（核心） | 固定【缺陷】场景 + 自动填 6 必填字段 + 创建后回读校验 + 收据断点续传；`--log-dir` 同传关键包和完整包，`--dry-run` 预览 |
 | `scripts/tb_cookie.py` | 解密 Chrome cookie → `.tb_cookie` | Chrome 149 / cookie DB v24；显式 profile 严格，配置失效且仅一个 profile 时自动回退 |
 | `scripts/tb_pull.py` | 列缺陷 / 发评论（复用） | `--lib LXLT list` 列缺陷；`--lib LXLT comment LXLT-n -t … -a …` 发评论+附件 |
+| `scripts/tb_version.py` | TB 版本发现 / 登记 | `list` 列项目已用版本；`register <label>` 登记；`sync` 全量登记；`tb_create.py` 遇未登记版本自动调用 |
 | `scripts/tb_draft.py` | 分析报告 → 评论草稿（复用） | 切分五段（根因/机制/证据/置信度/修复） |
 | `scripts/pull_device_logs.sh` | 设备日志 → 本地 | 免密 SSH 10.5.5.1；按日期/节点；含 coredump |
 
